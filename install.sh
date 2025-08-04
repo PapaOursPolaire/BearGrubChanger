@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 24.0
+# Version 27.4
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -66,7 +66,7 @@ function installer_tous_les_assets() {
 
 # Thème GRUB
 function appliquer_theme() {
-    echo "=== Thèmes disponibles ==="
+    echo "Thèmes disponibles :"
     local i=1
     THEMES_KEYS=()
     for theme in "$THEMES_DIR"/*; do
@@ -180,6 +180,76 @@ function choisir_theme_plymouth() {
     echo "✅ Plymouth activé avec le thème $selected"
 }
 
+# Splashscreen pour les OS sous moteur graphique KDE Plasma
+function activer_splashscreen_kde() {
+    if [ "$XDG_CURRENT_DESKTOP" != "KDE" ] && [ "$DESKTOP_SESSION" != "plasma" ]; then
+        echo "❌ KDE Plasma non détecté. Cette option est réservée à KDE."
+        return
+    fi
+
+    echo "🎞️ Détection d'animations splashscreen GIF pour KDE Plasma..."
+    local i=1
+    SPLASH_KEYS=()
+
+    for splash in "$SPLASHSCREEN_DIR"/*.gif; do
+        [ -f "$splash" ] || continue
+        name=$(basename "$splash")
+        echo "$i. $name"
+        SPLASH_KEYS[$i]="$splash"
+        ((i++))
+    done
+
+    if [ "$i" -eq 1 ]; then
+        echo "⚠️ Aucun fichier GIF trouvé dans $SPLASHSCREEN_DIR"
+        return
+    fi
+
+    read -p "💠 Choix du splashscreen KDE : " splash_choice
+    if ! [[ "$splash_choice" =~ ^[0-9]+$ ]] || ((splash_choice < 1 || splash_choice >= i)); then
+        echo "❌ Choix invalide."; return
+    fi
+
+    selected="${SPLASH_KEYS[$splash_choice]}"
+    echo "🖼️ Application du splashscreen $(basename "$selected")..."
+
+    # Création d’un look-and-feel temporaire pour Plasma
+    TEMP_DIR="$HOME/.local/share/plasma/look-and-feel/org.kde.bear-splash"
+    mkdir -p "$TEMP_DIR/contents/splash/images"
+    cp "$selected" "$TEMP_DIR/contents/splash/images/splash.gif"
+
+    # Fichier metadata
+    cat > "$TEMP_DIR/metadata.desktop" <<EOF
+[Desktop Entry]
+Name=Bear Splash
+Comment=Splashscreen personnalisé BearGrubChanger
+X-KDE-PluginInfo-Author=PapaOurs
+X-KDE-PluginInfo-Name=org.kde.bear-splash
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-License=GPL
+X-KDE-ServiceTypes=Plasma/LookAndFeel
+EOF
+
+    # Fichier de configuration de splash
+    cat > "$TEMP_DIR/contents/splash/Splash.qml" <<EOF
+import QtQuick 2.0
+
+Item {
+    Image {
+        anchors.fill: parent
+        source: "images/splash.gif"
+    }
+}
+EOF
+
+    # Activation du look & feel
+    if command -v plasma-apply-lookandfeel &>/dev/null; then
+        plasma-apply-lookandfeel org.kde.bear-splash
+        echo "✅ Splashscreen KDE appliqué."
+    else
+        echo "⚠️ Impossible d'appliquer automatiquement le splashscreen. Utilise les paramètres KDE > Démarrage."
+    fi
+}
+
 # Interface utilisateur
 function menu_principal() {
     while true; do
@@ -189,6 +259,7 @@ function menu_principal() {
         echo "3. Appliquer une police"
         echo "4. Remplacer les icônes"
         echo "5. Activer une animation Plymouth"
+        echo "6. Activer un splashscreen KDE Plasma (.gif)"
         echo "0. Quitter"
         read -p "🎮 Choix : " opt
 
@@ -205,6 +276,7 @@ function menu_principal() {
             3) appliquer_police ;;
             4) remplacer_icones ;;
             5) choisir_theme_plymouth ;;
+            6) activer_splashscreen_kde ;;
             0) echo "👋 Vzy casse-toi d'là"; exit 0 ;;
             *) echo "❌ Option invalide." ;;
         esac
