@@ -14,12 +14,21 @@ GIT_BRANCH="Projets"
 function verifier_et_installer_grub() {
     if ! command -v grub-install &>/dev/null; then
         echo "🔧 GRUB n'est pas installé. Installation en cours..."
-        sudo apt install grub2-common grub-pc -y || sudo pacman -S grub --noconfirm || sudo dnf install grub2 -y || {
+        sudo apt install grub2-common grub-pc -y || \
+        sudo pacman -S grub --noconfirm || \
+        sudo dnf install grub2 -y || {
             echo "❌ Échec de l'installation de GRUB."; exit 1;
         }
     else
         echo "✅ GRUB est déjà installé."
     fi
+}
+
+# 🔍 Forcer l'affichage du menu GRUB
+function forcer_affichage_menu_grub() {
+    echo "🛠️ Configuration de l'affichage du menu GRUB..."
+    sudo sed -i 's/^GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=menu/' "$GRUB_FILE" || echo 'GRUB_TIMEOUT_STYLE=menu' | sudo tee -a "$GRUB_FILE"
+    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=5/' "$GRUB_FILE" || echo 'GRUB_TIMEOUT=5' | sudo tee -a "$GRUB_FILE"
 }
 
 # 🧬 Clone ou met à jour le dépôt
@@ -149,6 +158,7 @@ function menu_principal() {
                 verifier_et_installer_grub
                 cloner_depot
                 installer_tous_les_assets
+                forcer_affichage_menu_grub
                 ;;
             2)
                 appliquer_theme
@@ -170,5 +180,5 @@ function menu_principal() {
     done
 }
 
-# Lancement
+# ▶ Lancement
 menu_principal
