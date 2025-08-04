@@ -39,3 +39,4 @@ terminal-border: "0"
   color = "#cccccccc"
   font = "Super Mario Bros. 2 Regular 16"
 }
+
