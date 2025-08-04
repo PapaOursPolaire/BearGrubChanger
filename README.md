@@ -32,3 +32,7 @@ VOICI LES APERÇUS DES THÈMES DISPONIBLES :
 ARCADE :
 
 <img width="1920" height="1080" alt="Arcade" src="https://github.com/user-attachments/assets/4bd95628-9a44-4d3f-b9da-e4eb7e3e3b48" />
+
+ARCHLINUX : (il existe mais j'ai pas de screen sorry j'en ferais un si j'ai pas la flemme)
+
+
