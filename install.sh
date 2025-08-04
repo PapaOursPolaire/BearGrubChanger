@@ -1,32 +1,33 @@
 #!/bin/bash
 
-# 🐻 BearGrubChanger - full auto GRUB theming & fix
-# Version 16.4
+# BearGrubChanger - by PapaOursPolaire 
+# Version 24.0
 
+# Chemins et variables
 THEMES_DIR="/boot/grub/themes"
 LOCAL_DIR="$HOME/.grub-themes"
 REPO_DIR="$LOCAL_DIR/BearGrubChanger"
 GRUB_FILE="/etc/default/grub"
 GIT_REPO="https://github.com/PapaOursPolaire/BearGrubChanger.git"
 GIT_BRANCH="Projets"
+PLYMOUTH_DIR="/usr/share/plymouth/themes"
 
-# 1. Installer GRUB si manquant
+# Menu GRUB
 function verifier_et_installer_grub() {
     if ! command -v grub-install &>/dev/null; then
-        echo "🔧 GRUB manquant, installation..."
+        echo "🔧 GRUB n'est pas installé. Installation..."
         sudo apt install grub2-common grub-pc -y || \
         sudo pacman -S grub --noconfirm || \
         sudo dnf install grub2 -y || {
-            echo "❌ Échec installation GRUB."; exit 1;
+            echo "❌ Échec de l'installation de GRUB."; exit 1;
         }
     else
-        echo "✅ GRUB est installé."
+        echo "✅ GRUB est déjà installé."
     fi
 }
 
-# 2. Forcer le menu GRUB visible à chaque boot
 function forcer_affichage_menu_grub() {
-    echo "🛠️ Correction de /etc/default/grub..."
+    echo "🛠️ Forçage affichage menu GRUB..."
     sudo sed -i '/^GRUB_TIMEOUT_STYLE=/d' "$GRUB_FILE"
     sudo sed -i '/^GRUB_TIMEOUT=/d' "$GRUB_FILE"
     sudo sed -i '/^GRUB_HIDDEN_TIMEOUT=/d' "$GRUB_FILE"
@@ -35,11 +36,9 @@ function forcer_affichage_menu_grub() {
 GRUB_TIMEOUT_STYLE=menu
 GRUB_TIMEOUT=5
 EOF
-
-    echo "✅ Menu GRUB sera affiché pendant 5 secondes."
 }
 
-# 3. Cloner le dépôt
+# Clonage de mon dépot GitHub
 function cloner_depot() {
     mkdir -p "$LOCAL_DIR"
     if [ ! -d "$REPO_DIR" ]; then
@@ -53,19 +52,19 @@ function cloner_depot() {
     fi
 }
 
-# 4. Installer tous les fichiers (thèmes, icônes, polices)
+# Installation des fichiers
 function installer_tous_les_assets() {
-    echo "📂 Copie des thèmes, icônes, polices..."
+    echo "📂 Copie des thèmes, icônes et polices..."
     sudo mkdir -p "$THEMES_DIR"
     sudo cp -r "$REPO_DIR/themes/"* "$THEMES_DIR/"
     mkdir -p "$LOCAL_DIR/icons"
     cp -r "$REPO_DIR/icons/"* "$LOCAL_DIR/icons/"
     mkdir -p "$LOCAL_DIR/fonts"
     cp -r "$REPO_DIR/fonts/"* "$LOCAL_DIR/fonts/"
-    echo "✅ Installation complète."
+    echo "✅ Fichiers installés."
 }
 
-# 5. Appliquer un thème
+# Thème GRUB
 function appliquer_theme() {
     echo "=== Thèmes disponibles ==="
     local i=1
@@ -87,10 +86,10 @@ function appliquer_theme() {
     sudo sed -i '/^GRUB_THEME=/d' "$GRUB_FILE"
     echo "GRUB_THEME=\"$THEMES_DIR/$selected/theme.txt\"" | sudo tee -a "$GRUB_FILE"
     sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg
-    echo "✅ Thème appliqué."
+    echo "✅ Thème $selected appliqué."
 }
 
-# 6. Appliquer une police
+# Configration de la police GRUB (uniquement, peut-etre ajouter dans le futur la police de l'OS et pas seulement du GRUB à voir si j'ai le temps)
 function appliquer_police() {
     echo "=== Polices disponibles ==="
     local i=1
@@ -117,10 +116,10 @@ function appliquer_police() {
     sudo sed -i '/^terminal-font:/d' "$current_theme"
     echo "terminal-font: $LOCAL_DIR/fonts/$selected" | sudo tee -a "$current_theme"
     sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg
-    echo "✅ Police appliquée."
+    echo "✅ Police $selected appliquée."
 }
 
-# 7. Remplacer les icônes
+# Icones GRUB
 function remplacer_icones() {
     echo "=== Packs d'icônes disponibles ==="
     local i=1
@@ -147,17 +146,49 @@ function remplacer_icones() {
 
     sudo cp -r "$LOCAL_DIR/icons/$selected/"* "$theme_path/icons/"
     sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg
-    echo "✅ Icônes remplacées."
+    echo "✅ Icônes $selected appliquées."
 }
 
-# Menu principal
+# Plymouth
+function installer_plymouth() {
+    echo "📦 Installation de Plymouth..."
+    sudo apt install plymouth -y || sudo pacman -S plymouth --noconfirm || sudo dnf install plymouth -y
+}
+
+function choisir_theme_plymouth() {
+    echo "=== Thèmes Plymouth disponibles ==="
+    local i=1
+    PLYM_KEYS=()
+    for theme in "$PLYMOUTH_DIR"/*; do
+        if [ -d "$theme" ]; then
+            name=$(basename "$theme")
+            echo "$i. $name"
+            PLYM_KEYS[$i]="$name"
+            ((i++))
+        fi
+    done
+
+    read -p "🔥 Choix du thème Plymouth : " plym_choice
+    if ! [[ "$plym_choice" =~ ^[0-9]+$ ]] || ((plym_choice < 1 || plym_choice >= i)); then
+        echo "❌ Choix invalide."; exit 1
+    fi
+
+    selected="${PLYM_KEYS[$plym_choice]}"
+    echo "⚙️ Activation du thème $selected..."
+    sudo plymouth-set-default-theme "$selected"
+    sudo update-initramfs -u
+    echo "✅ Plymouth activé avec le thème $selected"
+}
+
+# Interface utilisateur
 function menu_principal() {
     while true; do
-        echo -e "\n==== 🐻 BearGrubChanger ===="
-        echo "1. Installer thèmes/icônes/polices (et activer menu)"
-        echo "2. Appliquer un thème GRUB"
-        echo "3. Appliquer une police d’écriture"
+        echo -e "\n🐻 BearGrubChanger"
+        echo "1. Installer tous les thèmes, polices, icônes + GRUB + Plymouth"
+        echo "2. Changer le thème GRUB"
+        echo "3. Appliquer une police"
         echo "4. Remplacer les icônes"
+        echo "5. Activer une animation Plymouth"
         echo "0. Quitter"
         read -p "🎮 Choix : " opt
 
@@ -167,16 +198,17 @@ function menu_principal() {
                 cloner_depot
                 installer_tous_les_assets
                 forcer_affichage_menu_grub
+                installer_plymouth
                 sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg
                 ;;
             2) appliquer_theme ;;
             3) appliquer_police ;;
             4) remplacer_icones ;;
-            0) echo "👋 À bientôt !"; exit 0 ;;
+            5) choisir_theme_plymouth ;;
+            0) echo "👋 Vzy casse-toi d'là"; exit 0 ;;
             *) echo "❌ Option invalide." ;;
         esac
     done
 }
 
-# ▶️ Lancement
 menu_principal
