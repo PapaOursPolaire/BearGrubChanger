@@ -36,4 +36,6 @@ ARCADE :
 
 ARCHLINUX : (il existe mais j'ai pas de screen sorry j'en ferais un si j'ai pas la flemme)
 
+Arknights_Priestess (il existe aussi mais toujours pas de screen non plus, je débutes)
+
 
