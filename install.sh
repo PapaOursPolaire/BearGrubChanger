@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # 🐻 BearGrubChanger by PapaOursPolaire
+# Version 14.2
 
 # 📁 Chemins
 THEMES_DIR="/boot/grub/themes"
