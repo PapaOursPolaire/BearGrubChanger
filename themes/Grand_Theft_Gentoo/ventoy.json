@@ -1,0 +1,11 @@
+{
+    "theme": {
+        "file": "/ventoy/themes/grub_gtg/theme.txt",
+        "gfxmode": "1600x900",
+        "ventoy_top": "100%",
+        "ventoy_color": "#000000",
+	"fonts": [
+	    "/ventoy/themes/grub_gtg/bankgothic.pf2"
+	]
+    }
+}

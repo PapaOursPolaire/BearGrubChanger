@@ -1,0 +1,44 @@
+#Main
+title-text: ""
+desktop-image: "background.png"
+desktop-color: "#000000"
+terminal-left: "0"
+terminal-top: "0"
+terminal-width: "100%"
+terminal-height: "100%"
+terminal-border: "0"
+
+
+
+#Boot Menu
++ boot_menu {
+  left = 3%
+  top = 42%
+  width = 40%
+  align="center"
+  item_align = "center"
+  height = 45%
+  item_color = "#475a6b"
+  item_font = "bankgothic"
+  selected_item_color = "#a9c9ef"
+  selected_item_align = "center"
+  selected_item_pixmap_style = "select_*.png"
+  menu_pixmap_style = "menu_*.png"
+  menu_opacity = ""
+  item_height = 35
+  item_padding = 15
+  item_spacing = 3 
+  scrollbar_thumb = "scrollbar_thumb_*.png"
+  scrollbar_width = 8
+}
+
++ label {
+  left = 8%
+  top = 88%
+  align = "left"
+  id = "__timeout__"
+  text = "Default OS boots in %d "
+  color = "#475a6b"
+}
+
+
