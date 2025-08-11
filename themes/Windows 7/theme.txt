@@ -48,6 +48,6 @@ terminal-box: "menu_bkg_*.png"
 		font = "Consolas Regular 12"
 		text_color = "255, 255, 255"
 		text = ""
-		bar_style = "progress_bar_*.png"
-		highlight_style = "progress_highlight_*.png"
+		#bar_style = "progress_bar_*.png"
+		#highlight_style = "progress_highlight_*.png"
 }
