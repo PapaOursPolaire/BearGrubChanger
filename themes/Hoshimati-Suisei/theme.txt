@@ -44,8 +44,8 @@ message-color: "#fd262e"
   text = "Automatically booting in %d seconds"
   text_color = "gainsboro"
   bar_style = "progress_frame_*.png"
-  highlight_style = "progress_highlight_*.png"
+  #highlight_style = "progress_highlight_*.png"
   show_text = true
   bar_style = "progress_frame_*.png"
-  highlight_style = "progress_highlight_*.png"
+  #highlight_style = "progress_highlight_*.png"
 }
