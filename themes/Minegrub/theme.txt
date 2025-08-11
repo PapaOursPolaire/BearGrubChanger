@@ -9,7 +9,7 @@ terminal-left: "10%"
 terminal-top: "10%+23"
 terminal-width: "80%"
 terminal-height: "80%"
-terminal-box: "term_*.png"
+#terminal-box: "term_*.png"
 terminal-font: "Monocraft Regular 22"
 
 # Text White 
@@ -52,29 +52,29 @@ terminal-font: "Monocraft Regular 22"
 
 
 
-+ image {
-	# width of the static bottom bar image is 744
-	left = 50%-372
-
-	# n is amount of boot options (each element is (42 height + 30 spacing) = 72px in height) 
-	# top = 40%+( 72 * N + 26 )
-	#
-	### +170 (for 2 boot options)
-	### +242 (for 3 boot options)
-	### +314 (for 4 boot options)
-	### +386 (for 5 boot options)
-	### +458 (for 6 boot options)
-	### +530 (for 7 boot options)
-	###
-	############### CHANGE VALUE HERE ################
-
-	top = 40%+314
-
-	### Don't leave spaces in between the value
-	##################################################
-
-	file = "static_bar.png"
-}
+#+ image {
+#	# width of the static bottom bar image is 744
+#	left = 50%-372
+#
+#	# n is amount of boot options (each element is (42 height + 30 spacing) = 72px in height) 
+#	# top = 40%+( 72 * N + 26 )
+#	#
+#	### +170 (for 2 boot options)
+#	### +242 (for 3 boot options)
+#	### +314 (for 4 boot options)
+#	### +386 (for 5 boot options)
+#	### +458 (for 6 boot options)
+#	### +530 (for 7 boot options)
+#	###
+#	############### CHANGE VALUE HERE ################
+#
+#	top = 40%+314
+#
+#	### Don't leave spaces in between the value
+#	##################################################
+#
+#	file = "static_bar.png"
+#}
 
 + image {
 	# width of the logo image is 1200, but the center of the logo is at x=400
