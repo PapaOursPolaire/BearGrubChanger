@@ -43,9 +43,9 @@ message-color: "#fd262e"
   id = "__timeout__"
   text = "Automatically booting in %d seconds"
   text_color = "#000000"
-  bar_style = "progress_frame_*.png"
-  highlight_style = "progress_highlight_*.png"
+  #bar_style = "progress_frame_*.png"
+  #highlight_style = "progress_highlight_*.png"
   show_text = true
-  bar_style = "progress_frame_*.png"
-  highlight_style = "progress_highlight_*.png"
+  #bar_style = "progress_frame_*.png"
+  #highlight_style = "progress_highlight_*.png"
 }
