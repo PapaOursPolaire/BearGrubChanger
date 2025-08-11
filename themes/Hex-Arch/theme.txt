@@ -5,7 +5,7 @@ title-text: ""
 desktop-image: "background_arch.png"
 desktop-color: "#000000"
 terminal-font: "Terminus Regular 14"
-terminal-box: "terminal_box_*.png"
+#terminal-box: "terminal_box_*.png"
 terminal-left: "0"
 terminal-top: "0"
 terminal-width: "100%"
@@ -30,9 +30,9 @@ terminal-border: "0"
   selected_item_pixmap_style = "select_*.png"
   scrollbar = true
   scrollbar_width = 24
-  scrollbar_thumb = "sb_thumb_*.png"
-  scrollbar_frame = "sb_frame_*.png"
-  menu_pixmap_style = "select_*.png"
+  #scrollbar_thumb = "sb_thumb_*.png"
+  #scrollbar_frame = "sb_frame_*.png"
+  #menu_pixmap_style = "select_*.png"
 }
 
 + progress_bar {
@@ -47,8 +47,8 @@ terminal-border: "0"
   fg_color = "#ffff00"
   bg_color = "#31363b"
   border_color = "#31363b"
-  bar_style = "progress_bar_*.png"
-  highlight_style = "progress_highlight_*.png"
+  #bar_style = "progress_bar_*.png"
+  #highlight_style = "progress_highlight_*.png"
 }
 
 + label {
