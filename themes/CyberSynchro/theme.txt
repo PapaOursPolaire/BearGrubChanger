@@ -6,7 +6,7 @@ title-text:" "
 message-font: "Poppins Regular 16"
 message-color: "#757575"
 terminal-font: "Terminus Regular 16"
-terminal-box: "terminal_*.png"
+#terminal-box: "terminal_*.png"
 
 
 + boot_menu {
