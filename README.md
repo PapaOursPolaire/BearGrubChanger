@@ -5,15 +5,15 @@ Conçu pour les passionnés de personnalisation et les mateurs des distributions
 
 🎯 Objectifs principaux :
 
-💡 Changer le thème GRUB parmi une sélection de thèmes esthétiques (ex: Fallout, Arcade, CRT, etc.)
+💡 Change le thème GRUB parmi une sélection de thèmes esthétiques (ex: Fallout, Arcade, CRT, etc.)
 
-🎨 Automatiser les modifications des fichiers .conf concernés pour empêcher les noobs à rager et revenir sur Windows
+🎨 Automatise les modifications des fichiers .conf concernés pour empêcher les noobs à rager et revenir sur Windows
 
-📥 Télécharger automatiquement les fichiers nécessaires (`theme.txt`, `background.png`, `icons/`)
+📥 Télécharge automatiquement les fichiers nécessaires (`theme.txt`, `background.png`, `icons/`)
 
-🧩 Personnaliser les icônes indépendamment du thème (pack d'icônes interchangeable)
+🧩 Personnalise les icônes indépendamment du thème (pack d'icônes interchangeable)
 
-🔧 Appliquer automatiquement les modifications dans GRUB (`/etc/default/grub` + `update-grub`)
+🔧 Applique automatiquement les modifications dans GRUB (`/etc/default/grub` + `update-grub`)
 
 🧱 Organisation claire des fichiers via des dossiers `themes/` et `icons/` dans le dépôt GitHub
 
