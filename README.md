@@ -17,7 +17,9 @@ Conçu pour les passionnés de personnalisation et les mateurs des distributions
 
 🧱 Organisation claire des fichiers via des dossiers `themes/` et `icons/` dans le dépôt GitHub
 
-D'autres thèmes sont à venir, , n'hésitez pas à me contacter via le forum du projet ou via mon adresse électronique professionnelle : papaoursgamer@gmail.com
+D'autres thèmes, SDDM, plymouth, polices d'écritures, packs d'icônes sont à venir mais n'hésitez pas à me contacter si vous voulez me proposer du contenu en lien avec BearGrubChanger via le forum du projet ou via mon adresse électronique professionnelle : 
+
+papaoursgamer@gmail.com
 
 Coordonnées complémentaires :
 
