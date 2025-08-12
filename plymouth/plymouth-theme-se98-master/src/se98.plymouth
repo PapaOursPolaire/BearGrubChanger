@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=SE98
+Description=SE98 Plymouth screen
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/se98
+ScriptFile=/usr/share/plymouth/themes/se98/se98.script
