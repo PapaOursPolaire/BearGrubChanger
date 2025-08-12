@@ -104,7 +104,7 @@ Minegrub  :
 
 <img width="1920" height="1080" alt="Minegrub" src="https://github.com/user-attachments/assets/6fd0b89b-08ea-425a-b3b7-680e80e4152a" />
 
-Minegrub (World) : C'est une annoce, je cherche toujours le repo d'origine 
+Minegrub (World) : C'est une annonce, je cherche toujours le repo d'origine 
 
 <img width="1920" height="1080" alt="Minegrub-World" src="https://github.com/user-attachments/assets/1808973f-d3cf-489b-ab22-f97fc6109797" />
 
