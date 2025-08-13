@@ -104,32 +104,75 @@ function appliquer_theme() {
 
 # Configration de la police GRUB
 function appliquer_police() {
-    echo "Polices disponibles :"
+    echo "Polices disponibles pour GRUB:"
     local i=1
     FONTS_KEYS=()
-    for font in "$LOCAL_DIR/fonts"/*; do
+    for font in "$LOCAL_DIR/fonts"/*.{pf2,ttf,otf}; do
+        [ -f "$font" ] || continue
         name=$(basename "$font")
         echo "$i. $name"
         FONTS_KEYS[$i]="$name"
         ((i++))
     done
 
-    read -p "✒️ Choix de la police : " choice
+    if [ $i -eq 1 ]; then
+        echo "❌ Aucune police trouvée dans $LOCAL_DIR/fonts/"
+        return 1
+    fi
+
+    read -p "✒️ Choix de la police GRUB : " choice
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice >= i)); then
-        echo "❌ Choix invalide."; exit 1
+        echo "❌ Choix invalide."; return 1
     fi
 
     selected="${FONTS_KEYS[$choice]}"
     current_theme=$(grep GRUB_THEME "$GRUB_FILE" | cut -d'=' -f2 | tr -d '"')
 
     if [ ! -f "$current_theme" ]; then
-        echo "❌ Thème actif introuvable."; exit 1
+        echo "❌ Thème actif introuvable."; return 1
     fi
 
     sudo sed -i '/^terminal-font:/d' "$current_theme"
-    echo "terminal-font: $LOCAL_DIR/fonts/$selected" | sudo tee -a "$current_theme"
+    echo "terminal-font: \"$LOCAL_DIR/fonts/$selected\"" | sudo tee -a "$current_theme"
     sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg
-    echo "✅ Police $selected appliquée."
+    echo "✅ Police GRUB $selected appliquée."
+}
+
+# Police système
+function appliquer_police_systeme() {
+    echo -e "\n⚠️ Cette option va installer des polices système supplémentaires."
+    read -p "Voulez-vous utiliser la même police que GRUB? (o/n) " same_font
+    
+    if [[ "$same_font" =~ ^[oO]$ ]]; then
+        if [ -z "$selected" ]; then
+            echo "❌ Aucune police GRUB sélectionnée. Utilisez d'abord l'option 3."
+            return 1
+        fi
+        font_path="$LOCAL_DIR/fonts/$selected"
+    else
+        echo "Polices système disponibles:"
+        local i=1
+        SYS_FONTS_KEYS=()
+        for font in /usr/share/fonts/* "$LOCAL_DIR/fonts"/*.{ttf,otf}; do
+            [ -f "$font" ] || continue
+            name=$(basename "$font")
+            echo "$i. $name"
+            SYS_FONTS_KEYS[$i]="$font"
+            ((i++))
+        done
+
+        read -p "✒️ Choix de la police système : " choice
+        if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice >= i)); then
+            echo "❌ Choix invalide."; return 1
+        fi
+        font_path="${SYS_FONTS_KEYS[$choice]}"
+    fi
+
+    echo "📋 Installation de la police système..."
+    sudo mkdir -p /usr/share/fonts/custom
+    sudo cp "$font_path" /usr/share/fonts/custom/
+    sudo fc-cache -fv
+    echo "✅ Police système installée. Vous pouvez la sélectionner dans les paramètres de votre bureau."
 }
 
 # Icones GRUB
@@ -172,7 +215,7 @@ function choisir_theme_plymouth() {
     echo "Thèmes Plymouth disponibles :"
     local i=1
     PLYM_KEYS=()
-    for theme in "$PLYMOUTH_DIR"/*; do
+    for theme in "$PLYMOUTH_TRANSITIONS_DIR"/*; do
         if [ -d "$theme" ]; then
             name=$(basename "$theme")
             echo "$i. $name"
@@ -181,22 +224,28 @@ function choisir_theme_plymouth() {
         fi
     done
 
+    if [ $i -eq 1 ]; then
+        echo "❌ Aucun thème Plymouth trouvé dans $PLYMOUTH_TRANSITIONS_DIR"
+        return 1
+    fi
+
     read -p "🔥 Choix du thème Plymouth : " plym_choice
     if ! [[ "$plym_choice" =~ ^[0-9]+$ ]] || ((plym_choice < 1 || plym_choice >= i)); then
-        echo "❌ Choix invalide."; exit 1
+        echo "❌ Choix invalide."; return 1
     fi
 
     selected="${PLYM_KEYS[$plym_choice]}"
     echo "⚙️ Activation du thème $selected..."
     
-    # Installation du thème sélectionné
+    # Copie du thème dans le dossier Plymouth
+    sudo cp -r "$PLYMOUTH_TRANSITIONS_DIR/$selected" "$PLYMOUTH_DIR/"
+    
     if [ -f "$PLYMOUTH_DIR/$selected/$selected.plymouth" ]; then
         sudo plymouth-set-default-theme -R "$selected"
         sudo update-initramfs -u
         echo "✅ Plymouth activé avec le thème $selected"
     else
         echo "❌ Le thème sélectionné n'est pas installé correctement."
-        echo "Essayez de réinstaller Plymouth et les thèmes."
     fi
 }
 
@@ -245,27 +294,19 @@ EOF
 function activer_splashscreen_kde() {
     SPLASHSCREEN_DIR="$REPO_DIR/splashscreens"
     
-    # Vérification renforcée
     if [ ! -d "$SPLASHSCREEN_DIR" ]; then
-        echo "❌ Erreur : Dossier introuvable -> $SPLASHSCREEN_DIR"
-        echo "Solutions possibles :"
-        echo "1. Créez le dossier manuellement : mkdir -p '$SPLASHSCREEN_DIR'"
-        echo "2. Vérifiez que le dépôt a bien été cloné"
+        echo "❌ Dossier splashscreens introuvable."
         return 1
     fi
 
-    # Debug : Affiche le contenu réel
-    echo "🔍 Contenu du dossier :"
-    ls -lh "$SPLASHSCREEN_DIR" || return 1
+    # Liste des fichiers splashscreen sans afficher le contenu du dossier
+    splash_files=()
+    while IFS= read -r -d $'\0' file; do
+        splash_files+=("$file")
+    done < <(find "$SPLASHSCREEN_DIR" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" \) -print0)
 
-    # Détection robuste des fichiers supportés
-    shopt -s nullglob
-    splash_files=("$SPLASHSCREEN_DIR"/*.{png,jpg,jpeg,gif,PNG,JPG,JPEG,GIF})
-    
     if [ ${#splash_files[@]} -eq 0 ]; then
-        echo "❌ Aucun fichier splashscreen valide trouvé dans :"
-        echo "   $SPLASHSCREEN_DIR"
-        echo "   Formats supportés : PNG, JPG, GIF"
+        echo "❌ Aucun splashscreen valide trouvé."
         return 1
     fi
 
@@ -282,76 +323,50 @@ function activer_splashscreen_kde() {
 
     selected="${splash_files[$((choice-1))]}"
     selected_name=$(basename "$selected")
-    extension="${selected_name##*.}"
     
+    # Solution plus fiable pour KDE Plasma
     echo "🖌️ Application de $selected_name..."
-
-    # Vérification de l'environnement KDE
-    if [ "$XDG_CURRENT_DESKTOP" != "KDE" ] && [ "$DESKTOP_SESSION" != "plasma" ]; then
-        echo "❌ KDE Plasma non détecté. Cette option est réservée à KDE."
-        return 1
-    fi
-
-    # Création du dossier du thème
-    THEME_DIR="$HOME/.local/share/plasma/look-and-feel/org.kde.bear-splash"
-    mkdir -p "$THEME_DIR/contents/splash/images"
     
-    # Copie du fichier splashscreen
-    cp "$selected" "$THEME_DIR/contents/splash/images/splash.$extension"
-
-    # Fichier metadata.desktop
-    cat > "$THEME_DIR/metadata.desktop" <<EOF
+    # Méthode alternative pour KDE 5
+    if command -v ksplashqml >/dev/null; then
+        sudo cp "$selected" /usr/share/plasma/look-and-feel/org.kde.breeze.desktop/contents/splash/images/splash.png
+        echo "✅ Splashscreen appliqué (méthode système)"
+    else
+        # Méthode utilisateur
+        THEME_DIR="$HOME/.local/share/plasma/look-and-feel/org.kde.bear-splash"
+        mkdir -p "$THEME_DIR/contents/splash/images"
+        cp "$selected" "$THEME_DIR/contents/splash/images/splash.png"
+        
+        # Metadata obligatoire
+        cat > "$THEME_DIR/metadata.desktop" <<EOF
 [Desktop Entry]
-Name=Bear Splash ($selected_name)
-Comment=Splashscreen personnalisé BearGrubChanger
+Name=Bear Splash
+Comment=Custom Splashscreen
 X-KDE-PluginInfo-Author=PapaOurs
 X-KDE-PluginInfo-Name=org.kde.bear-splash
 X-KDE-PluginInfo-Version=1.0
 X-KDE-PluginInfo-License=GPL
+X-KDE-PluginInfo-Website=
 X-KDE-ServiceTypes=Plasma/LookAndFeel
 EOF
 
-    # Fichier Splash.qml adapté au format
-    if [[ "$extension" =~ ^(gif|GIF)$ ]]; then
-        # Configuration pour GIF animé
+        # Fichier Splash.qml minimal
         cat > "$THEME_DIR/contents/splash/Splash.qml" <<EOF
 import QtQuick 2.0
-import QtQuick.Controls 1.0
-
-Item {
-    AnimatedImage {
-        id: animation
-        anchors.fill: parent
-        source: "images/splash.$extension"
-        playing: true
-    }
+Image {
+    source: "images/splash.png"
+    anchors.fill: parent
 }
 EOF
-    else
-        # Configuration pour image statique
-        cat > "$THEME_DIR/contents/splash/Splash.qml" <<EOF
-import QtQuick 2.0
 
-Item {
-    Image {
-        anchors.fill: parent
-        source: "images/splash.$extension"
-        fillMode: Image.PreserveAspectCrop
-    }
-}
-EOF
-    fi
-
-    # Application du thème
-    echo "⚙️ Activation du splashscreen..."
-    if command -v plasma-apply-lookandfeel >/dev/null; then
-        plasma-apply-lookandfeel org.kde.bear-splash
-        echo "✅ Splashscreen appliqué avec succès!"
-        echo "   Redémarrez votre session pour voir les changements."
-    else
-        echo "⚠️ Impossible d'appliquer automatiquement le splashscreen."
-        echo "   Vous pouvez le sélectionner manuellement dans:"
-        echo "   Paramètres système > Apparence > Style de démarrage"
+        # Appliquer le thème
+        if command -v lookandfeeltool >/dev/null; then
+            lookandfeeltool -a org.kde.bear-splash
+            echo "✅ Splashscreen appliqué! Redémarrez votre session."
+        else
+            echo "⚠️ Utilisez les paramètres système > Apparence > Style de démarrage"
+            echo "   et sélectionnez 'Bear Splash'"
+        fi
     fi
 }
 
@@ -379,12 +394,13 @@ function menu_principal() {
         echo -e "\n🐻 BearGrubChanger"
         echo "1. Installer tous les thèmes, polices, icônes + GRUB + Plymouth + SDDM"
         echo "2. Changer le thème GRUB"
-        echo "3. Appliquer une police pour le menu grub"
-        echo "4. Remplacer les icônes"
-        echo "5. Activer une animation Plymouth"
-        echo "6. Activer un splashscreen KDE Plasma"
-        echo "7. Changer le thème SDDM"
-        echo "8. Ajuster le délai de sélection GRUB"
+        echo "3. Appliquer une police pour le menu GRUB"
+        echo "4. Changer la police système"
+        echo "5. Remplacer les icônes GRUB"
+        echo "6. Activer une animation Plymouth"
+        echo "7. Activer un splashscreen KDE Plasma"
+        echo "8. Changer le thème SDDM"
+        echo "9. Ajuster le délai de sélection GRUB"
         echo "0. Quitter"
         read -p "🎮 Choix : " opt
 
@@ -400,11 +416,12 @@ function menu_principal() {
                 ;;
             2) appliquer_theme ;;
             3) appliquer_police ;;
-            4) remplacer_icones ;;
-            5) choisir_theme_plymouth ;;
-            6) activer_splashscreen_kde ;;
-            7) choisir_theme_sddm ;;
-            8) ajuster_delai_grub ;;
+            4) appliquer_police_systeme ;;
+            5) remplacer_icones ;;
+            6) choisir_theme_plymouth ;;
+            7) activer_splashscreen_kde ;;
+            8) choisir_theme_sddm ;;
+            9) ajuster_delai_grub ;;
             0) echo "👋 Vzy casse-toi d'là"; exit 0 ;;
             *) echo "❌ Option invalide." ;;
         esac
