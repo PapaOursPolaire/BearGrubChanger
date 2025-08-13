@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 27.7
+# Version 27.8
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
