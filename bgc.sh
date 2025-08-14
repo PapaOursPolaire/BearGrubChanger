@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 44.1, mise à jour le 14/08/2025 19:41
+# Version 44.3, mise à jour le 14/08/2025 19:43
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -885,7 +885,6 @@ EOF
     echo ""
     echo "💡 Le fond d'écran vidéo sera visible dans 5-10 secondes..."
     echo "🖱️ Clic sur le fond d'écran pour mettre en pause/reprendre"
-}
 }
 
 # Fonction pour tester Plymouth
