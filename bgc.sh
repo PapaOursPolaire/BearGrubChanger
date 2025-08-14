@@ -635,52 +635,48 @@ function activer_fond_anime_kde() {
         return 1
     fi
 
-    # Vérifier que l'utilisateur a choisi un gestionnaire de fichiers
-    FILE_MANAGER=""
-    if command -v dolphin >/dev/null; then
-        FILE_MANAGER="dolphin"
-    elif command -v nautilus >/dev/null; then
-        FILE_MANAGER="nautilus"
-    elif command -v thunar >/dev/null; then
-        FILE_MANAGER="thunar"
-    else
-        echo "❌ Aucun gestionnaire de fichiers graphique trouvé (dolphin, nautilus ou thunar)"
+    # Vérifier que zenity est installé
+    if ! command -v zenity >/dev/null; then
+        echo "❌ Zenity n'est pas installé. Installation en cours..."
+        sudo apt install zenity -y || sudo pacman -S zenity --noconfirm || sudo dnf install zenity -y || {
+            echo "❌ Impossible d'installer zenity. Installez-le manuellement."
+            return 1
+        }
+    fi
+
+    echo -e "\n🎥 Sélection d'une vidéo pour le fond d'écran animé"
+
+    # Sélection du fichier via zenity
+    video_path=$(zenity --file-selection \
+        --title="Sélectionnez une vidéo pour le fond d'écran animé" \
+        --file-filter="Vidéos | *.mp4 *.webm *.mkv *.mov *.avi" \
+        --filename="$HOME/Vidéos/")
+
+    # Vérifier que l'utilisateur a sélectionné un fichier
+    if [ -z "$video_path" ]; then
+        echo "❌ Aucune vidéo sélectionnée."
         return 1
     fi
 
-    # Dossier par défaut pour les vidéos
-    VIDEOS_DIR="$HOME/Vidéos"
-    mkdir -p "$VIDEOS_DIR"
-
-    echo -e "\n🎥 Sélection d'une vidéo pour le fond d'écran animé"
-    echo "Le gestionnaire de fichiers va s'ouvrir dans: $VIDEOS_DIR"
-    echo "Veuillez sélectionner une vidéo (mp4, webm, etc.)"
-    read -p "Appuyez sur Entrée pour continuer..." _
-
-    # Ouvrir le gestionnaire de fichiers
-    $FILE_MANAGER "$VIDEOS_DIR" >/dev/null 2>&1 &
-
-    # Demander le chemin de la vidéo sélectionnée
-    read -p "Entrez le chemin complet de la vidéo sélectionnée: " video_path
-
     # Vérifier que le fichier existe
     if [ ! -f "$video_path" ]; then
-        echo "❌ Le fichier spécifié n'existe pas."
+        zenity --error --text="Le fichier spécifié n'existe pas."
         return 1
     fi
 
     # Vérifier que c'est bien une vidéo
     if ! file "$video_path" | grep -qiE "video|media"; then
-        echo "❌ Le fichier ne semble pas être une vidéo valide."
+        zenity --error --text="Le fichier ne semble pas être une vidéo valide."
         return 1
     fi
 
     # Créer le dossier pour le fond d'écran animé
     THEME_NAME="bearanimatedbg"
     THEME_DIR="$HOME/.local/share/plasma/wallpapers/$THEME_NAME"
+    rm -rf "$THEME_DIR"  # Supprimer l'ancienne version si elle existe
     mkdir -p "$THEME_DIR/contents"
 
-    # Copier la vidéo
+    # Copier la vidéo avec un nom fixe
     cp "$video_path" "$THEME_DIR/contents/video.mp4"
 
     # Créer les fichiers de configuration
@@ -696,16 +692,19 @@ X-KDE-PluginInfo-Website=https://github.com/PapaOursPolaire/BearGrubChanger
 X-KDE-PlasmaAPI=5.0
 X-KDE-ServiceTypes=Plasma/Wallpaper
 Type=Service
+Icon=preferences-desktop-wallpaper
 EOF
 
-    cat > "$THEME_DIR/contents/default" <<EOF
-[Wallpaper]
-defaultHeight=1080
-defaultWidth=1920
-preferredHeight=1080
-preferredWidth=1920
-defaultBackgroundColor=000000
-defaultFillMode=2
+    cat > "$THEME_DIR/contents/main.xml" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<wallpapers version="1.0">
+    <wallpaper>
+        <name>Bear Animated Background</name>
+        <filename>contents/video.mp4</filename>
+        <fillmode>scaled</fillmode>
+        <enabled>true</enabled>
+    </wallpaper>
+</wallpapers>
 EOF
 
     cat > "$THEME_DIR/contents/main.qml" <<EOF
@@ -719,16 +718,29 @@ Item {
     Video {
         id: videoPlayer
         anchors.fill: parent
-        source: "contents/video.mp4"
+        source: "../contents/video.mp4"
         loops: MediaPlayer.Infinite
         fillMode: fill ? VideoOutput.PreserveAspectCrop : VideoOutput.PreserveAspectFit
         autoPlay: true
+        muted: false
     }
     
     Component.onCompleted: {
         videoPlayer.play()
     }
 }
+EOF
+
+    # Créer un fichier de config pour le mode plein écran
+    cat > "$THEME_DIR/contents/config/main.xml" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+    <group name="General">
+        <entry name="fillMode" type="int">
+            <default>2</default>
+        </entry>
+    </group>
+</config>
 EOF
 
     echo "✅ Fond d'écran animé configuré!"
@@ -740,29 +752,18 @@ EOF
         var allDesktops = desktops();
         for (i=0;i<allDesktops.length;i++) {
             d = allDesktops[i];
-            d.wallpaperPlugin = "org.kde.image";
-            d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
-            d.writeConfig("Image", "file://'$THEME_DIR'/contents/video.mp4");
-        }'
-        
-        sleep 1
-        
-        dbus-send --session --dest=org.kde.plasmashell --type=method_call /PlasmaShell org.kde.PlasmaShell.evaluateScript 'string:
-        var allDesktops = desktops();
-        for (i=0;i<allDesktops.length;i++) {
-            d = allDesktops[i];
             d.wallpaperPlugin = "'$THEME_NAME'";
         }'
     fi
 
+    # Message final avec zenity
+    zenity --info --text="Fond d'écran animé installé avec succès!\n\nPour l'appliquer manuellement:\n1. Clic droit sur le bureau → Configurer le fond d'écran\n2. Sélectionnez 'Bear Animated Background'\n3. Cliquez sur 'Appliquer'" \
+        --title="Installation réussie" --width=400
+
     echo -e "\n✅ Fond d'écran animé installé!"
     echo "📁 Dossier: $THEME_DIR"
-    echo "🔄 Pour l'appliquer manuellement:"
-    echo "   1. Faites un clic droit sur le bureau → Configurer le fond d'écran"
-    echo "   2. Sélectionnez 'Bear Animated Background'"
-    echo "   3. Cliquez sur 'Appliquer'"
-    echo ""
-    echo "⚠️ Note: La lecture vidéo peut consommer des ressources CPU/GPU"
+    echo "🔄 Si le fond ne s'affiche pas immédiatement, redémarrez Plasma avec:"
+    echo "   kquitapp5 plasmashell && kstart5 plasmashell"
 }
 
 # Interface utilisateur
