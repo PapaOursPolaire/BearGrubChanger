@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 46.5, mise à jour le 14/08/2025 21:48
+# Version 46.6, mise à jour le 14/08/2025 21:51
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -1044,3 +1044,5 @@ function menu_principal() {
         esac
     done
 }
+
+menu_principal
