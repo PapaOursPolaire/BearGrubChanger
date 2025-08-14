@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 38.0, mise à jour le 14/08/2025 14:40
+# Version 39.0, mise à jour le 14/08/2025 14:45
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -664,21 +664,38 @@ function activer_fond_anime_kde() {
 
     # Installer Smart Video Wallpaper Reborn avec pip
     echo "📦 Installation de Smart Video Wallpaper Reborn..."
-    pip3 install --user --upgrade smartvideowallpaper-reborn || {
-        echo "❌ Échec de l'installation de Smart Video Wallpaper Reborn."
-        echo "⚙️ Tentative alternative avec pipx..."
+    if pip3 install --user --upgrade smartvideowallpaper-reborn; then
+        echo "✅ Installation réussie avec pip"
+    else
+        echo "⚠️ Échec de l'installation standard, tentative avec pipx..."
+        
+        # Installer pipx si nécessaire
         if ! command -v pipx &>/dev/null; then
-            pip3 install --user pipx
+            echo "🔧 Installation de pipx..."
+            python3 -m pip install --user pipx
             python3 -m pipx ensurepath
+            # Recharger le PATH pour la session courante
+            export PATH="$HOME/.local/bin:$PATH"
         fi
-        pipx install smartvideowallpaper-reborn || {
-            echo "❌ Échec définitif de l'installation."
+
+        if command -v pipx &>/dev/null; then
+            if pipx install smartvideowallpaper-reborn; then
+                echo "✅ Installation réussie avec pipx"
+            else
+                echo "❌ Échec définitif de l'installation avec pipx"
+                return 1
+            fi
+        else
+            echo "❌ pipx n'est toujours pas disponible après installation"
             return 1
-        }
-    }
+        fi
+    fi
 
     # Démarrer l'interface graphique
     echo "🚀 Lancement de Smart Video Wallpaper..."
+    # Vérifier le PATH pour les commandes
+    export PATH="$HOME/.local/bin:$PATH"
+    
     if command -v smartvideowallpaper &>/dev/null; then
         smartvideowallpaper &
     elif command -v python3 &>/dev/null; then
@@ -699,7 +716,9 @@ function activer_fond_anime_kde() {
     echo "3. Cliquez sur 'Apply' pour activer le fond animé"
     echo "4. Fermez la fenêtre une fois configuré"
     echo ""
-    echo "💡 Pour le désinstaller plus tard : pip3 uninstall smartvideowallpaper-reborn"
+    echo "💡 Pour le désinstaller plus tard :"
+    echo "   pip3 uninstall smartvideowallpaper-reborn"
+    echo "   ou pipx uninstall smartvideowallpaper-reborn"
 }
 
 # Interface utilisateur
