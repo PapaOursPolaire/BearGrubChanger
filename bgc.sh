@@ -425,7 +425,7 @@ function activer_splashscreen_kde() {
 
     # Trouver les fichiers splashscreen (GIF prioritaire)
     declare -a splash_files
-    while IFS= read -r -d $'\0' file; do
+    while IFS= read -r -d
         splash_files+=("$file")
     done < <(find "$REPO_DIR/splashscreens" -maxdepth 1 -type f \( -iname "*.gif" -o -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) -print0)
 
