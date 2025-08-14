@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 41.0, mise à jour le 14/08/2025 18:55
+# Version 42.0, mise à jour le 14/08/2025 29:03
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -645,64 +645,111 @@ function ajuster_delai_grub() {
 
 # Fond d'écran animé KDE Plasma
 function activer_fond_anime_kde() {
-    # Vérifier que KDE Plasma est détecté
-    if [ ! -n "$KDE_SESSION_VERSION" ] && [ "$DESKTOP_SESSION" != "plasma" ] && ! pgrep -x "plasmashell" >/dev/null 2>&1; then
-        echo "❌ KDE Plasma non détecté."
-        echo "🖥️ Environnement actuel: ${DESKTOP_SESSION:-inconnu}"
+    # Vérifier que KDE Plasma est bien détecté
+    if ! pgrep -x "plasmashell" >/dev/null; then
+        echo "❌ KDE Plasma n'est pas détecté comme environnement actuel"
         return 1
     fi
 
-    echo -e "\n🎥 Installation de Smart Video Wallpaper Reborn pour KDE Plasma"
+    echo -e "\n🎬 CRÉATION DE FOND D'ÉCRAN VIDÉO POUR KDE PLASMA"
+    echo "🔍 Cherche les fichiers vidéo dans le dossier du script..."
 
-    # Vérifier et installer Python 3 et pip3
-    if ! command -v python3 &>/dev/null; then
-        echo "🔧 Installation de Python 3..."
-        sudo apt install python3 -y || sudo pacman -S python --noconfirm || sudo dnf install python3 -y || {
-            echo "❌ Échec de l'installation de Python 3."
-            return 1
-        }
-    fi
+    # Trouver les fichiers vidéo
+    local videos=()
+    while IFS= read -r -d $'\0' file; do
+        videos+=("$file")
+    done < <(find "$REPO_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.webm" -o -iname "*.mkv" \) -print0)
 
-    if ! command -v pip3 &>/dev/null; then
-        echo "🔧 Installation de pip3..."
-        sudo apt install python3-pip -y || sudo pacman -S python-pip --noconfirm || sudo dnf install python3-pip -y || {
-            echo "❌ Échec de l'installation de pip3."
-            return 1
-        }
-    fi
-
-    # Installer uniquement les dépendances essentielles
-    echo "🔧 Installation des dépendances de base..."
-    sudo apt install python3-venv -y || \
-    sudo pacman -S python-virtualenv --noconfirm || \
-    sudo dnf install python3-virtualenv -y || {
-        echo "⚠️ Impossible d'installer virtualenv, continuation quand même..."
-    }
-
-    # Installer Smart Video Wallpaper Reborn avec pip
-    echo "📦 Installation de Smart Video Wallpaper Reborn..."
-    pip3 install --user --upgrade smartvideowallpaper-reborn || {
-        echo "❌ Échec de l'installation."
-        echo "💡 Essayez manuellement : pip3 install --user smartvideowallpaper-reborn"
+    if [ ${#videos[@]} -eq 0 ]; then
+        echo "❌ Aucune vidéo trouvée dans $REPO_DIR"
+        echo "💡 Placez vos vidéos dans le dossier du script et relancez"
         return 1
+    fi
+
+    # Afficher les vidéos disponibles
+    echo -e "\n🎥 VIDÉOS DISPONIBLES :"
+    for i in "${!videos[@]}"; do
+        echo "$((i+1)). $(basename "${videos[$i]}")"
+    done
+
+    # Sélection de la vidéo
+    read -p "👉 Choisissez une vidéo [1-${#videos[@]}]: " choix
+    if ! [[ "$choix" =~ ^[0-9]+$ ]] || ((choix < 1 || choix > ${#videos[@]})); then
+        echo "❌ Choix invalide!"
+        return 1
+    fi
+
+    local video_path="${videos[$((choix-1))]}"
+    local video_name=$(basename "$video_path")
+    
+    echo -e "\n🛠️ Création du fond d'écran vidéo pour '$video_name'..."
+
+    # Créer le dossier du plugin
+    local plugin_dir="$HOME/.local/share/plasma/wallpapers/bear_video"
+    rm -rf "$plugin_dir"
+    mkdir -p "$plugin_dir"
+
+    # Fichier metadata.desktop
+    cat > "$plugin_dir/metadata.desktop" <<EOF
+[Desktop Entry]
+Name=Bear Video Wallpaper
+Comment=Video wallpaper by BearGrubChanger
+X-KDE-PluginInfo-Author=PapaOursPolaire
+X-KDE-PluginInfo-Name=org.kde.video
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-Website=https://github.com/PapaOursPolaire/BearGrubChanger
+X-KDE-PluginInfo-Category=Video
+X-KDE-PluginInfo-Depends=
+X-KDE-PluginInfo-License=GPL
+X-KDE-PluginInfo-EnabledByDefault=true
+X-KDE-ServiceTypes=Plasma/Wallpaper
+X-Plasma-API=declarativeappletscript
+X-Plasma-MainScript=ui/main.qml
+Type=Service
+EOF
+
+    # Dossier UI
+    mkdir -p "$plugin_dir/contents/ui"
+    
+    # Fichier main.qml
+    cat > "$plugin_dir/contents/ui/main.qml" <<EOF
+import QtQuick 2.0
+import QtMultimedia 5.8
+
+Item {
+    property string videoPath: "$video_path"
+    
+    MediaPlayer {
+        id: mediaplayer
+        source: videoPath
+        loops: MediaPlayer.Infinite
+        muted: true
     }
+    
+    VideoOutput {
+        anchors.fill: parent
+        source: mediaplayer
+    }
+    
+    Component.onCompleted: {
+        mediaplayer.play()
+    }
+}
+EOF
 
-    # Démarrer l'interface graphique
-    echo "🚀 Lancement de Smart Video Wallpaper..."
-    python3 -m smartvideowallpaper &
+    # Copier la vidéo dans le dossier du plugin
+    cp "$video_path" "$plugin_dir/contents/"
 
-    # Attendre que l'interface s'ouvre
-    sleep 3
-
-    # Instructions pour l'utilisateur
-    echo -e "\n✅ Smart Video Wallpaper Reborn est maintenant lancé !"
-    echo "📌 Instructions :"
-    echo "1. Cliquez sur 'Add Video' pour sélectionner votre vidéo"
-    echo "2. Ajustez les paramètres si nécessaire"
-    echo "3. Cliquez sur 'Apply' pour activer le fond animé"
-    echo "4. Fermez la fenêtre une fois configuré"
+    echo -e "\n✅ CONFIGURATION TERMINÉE !"
+    echo "📌 Pour appliquer le fond vidéo :"
+    echo "1. Faites un clic droit sur le bureau"
+    echo "2. Choisissez 'Configurer le fond d'écran'"
+    echo "3. Sélectionnez 'Bear Video Wallpaper'"
+    echo "4. Cliquez sur 'Appliquer'"
     echo ""
-    echo "💡 Pour le désinstaller : pip3 uninstall smartvideowallpaper-reborn"
+    echo "💡 Si l'option n'apparaît pas immédiatement :"
+    echo "   - Déconnectez-vous et reconnectez-vous"
+    echo "   - Redémarrez plasmashell : killall plasmashell && kstart plasmashell"
 }
 
 # Interface utilisateur
