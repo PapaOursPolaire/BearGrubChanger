@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 44.4, mise à jour le 14/08/2025 21:30
+# Version 44.5, mise à jour le 14/08/2025 21:32
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -1011,8 +1011,7 @@ menu_principal\0' file; do
         
         if [[ "$choice" =~ ^[0-9]+$ ]] && ((choice >= 1 && choice <= ${#video_files[@]})); then
             video_path="${video_files[$((choice-1))]}"
-        elif [ "$choice" = "$((${#video_files[@]}+1))" ]; then
-            # Ouvrir l'explorateur en arrière-plan (sans attendre)
+        elif [ "$choice" = "$((${#video_files[@]}+1))" ]; thena
             echo "📂 Ouverture de l'explorateur..."
             if command -v dolphin >/dev/null; then
                 dolphin "$VIDEOS_DIR" >/dev/null 2>&1 &
