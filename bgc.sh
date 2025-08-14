@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 33.0, mise à jour le 14/08/2025 12:38
+# Version 34.0, mise à jour le 14/08/2025 12:51
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -207,11 +207,36 @@ function remplacer_icones() {
 
 # Plymouth
 function installer_plymouth() {
-    echo "📦 Installation de Plymouth..."
-    sudo apt install plymouth plymouth-themes -y || sudo pacman -S plymouth --noconfirm || sudo dnf install plymouth -y
+    echo "📦 Installation complète de Plymouth..."
+    
+    # Installation selon la distribution
+    if command -v apt >/dev/null; then
+        sudo apt update
+        sudo apt install plymouth plymouth-themes plymouth-x11 -y
+    elif command -v pacman >/dev/null; then
+        sudo pacman -S plymouth --noconfirm
+    elif command -v dnf >/dev/null; then
+        sudo dnf install plymouth plymouth-scripts plymouth-plugin-* -y
+    else
+        echo "❌ Distribution non supportée pour l'installation automatique"
+        return 1
+    fi
+    
+    # Activer Plymouth dans GRUB
+    echo "⚙️ Configuration de GRUB pour Plymouth..."
+    sudo sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/c\GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"' "$GRUB_FILE"
+    sudo update-grub 2>/dev/null || sudo grub-mkconfig -o /boot/grub/grub.cfg
+    
+    echo "✅ Plymouth installé et configuré"
 }
 
 function choisir_theme_plymouth() {
+    # Vérifier que Plymouth est installé
+    if ! command -v plymouth >/dev/null; then
+        echo "❌ Plymouth n'est pas installé. Utilisez l'option pour l'installer."
+        return 1
+    fi
+    
     # Vérifier d'abord si les thèmes ont été clonés
     if [ ! -d "$REPO_DIR/plymouth" ]; then
         echo "⚠️ Dossier Plymouth non trouvé. Exécutez d'abord l'option 1."
@@ -222,7 +247,7 @@ function choisir_theme_plymouth() {
     local i=1
     PLYM_KEYS=()
     
-    # Parcourir le dossier plymouth du repo (pas transitions)
+    # Parcourir le dossier plymouth du repo
     for theme in "$REPO_DIR/plymouth"/*; do
         if [ -d "$theme" ]; then
             name=$(basename "$theme")
@@ -255,20 +280,38 @@ function choisir_theme_plymouth() {
     
     # Vérifier que le fichier .plymouth existe
     if [ -f "$PLYMOUTH_DIR/$selected/$selected.plymouth" ]; then
-        # Définir le thème par défaut
-        sudo plymouth-set-default-theme "$selected"
+        # Méthode alternative si plymouth-set-default-theme n'existe pas
+        if command -v plymouth-set-default-theme >/dev/null; then
+            sudo plymouth-set-default-theme "$selected"
+        else
+            # Configuration manuelle
+            echo "⚙️ Configuration manuelle de Plymouth..."
+            
+            # Créer/modifier le fichier de configuration Plymouth
+            sudo mkdir -p /etc/plymouth
+            echo "[Daemon]" | sudo tee /etc/plymouth/plymouthd.conf > /dev/null
+            echo "Theme=$selected" | sudo tee -a /etc/plymouth/plymouthd.conf > /dev/null
+            
+            # Alternative avec update-alternatives sur Debian/Ubuntu
+            if command -v update-alternatives >/dev/null; then
+                sudo update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth "/usr/share/plymouth/themes/$selected/$selected.plymouth" 100
+                sudo update-alternatives --set default.plymouth "/usr/share/plymouth/themes/$selected/$selected.plymouth"
+            fi
+        fi
         
         # Reconstruire l'initramfs
+        echo "🔄 Reconstruction de l'initramfs..."
         if command -v update-initramfs >/dev/null; then
             sudo update-initramfs -u -k all
         elif command -v dracut >/dev/null; then
-            sudo dracut -f
+            sudo dracut -f --regenerate-all
         elif command -v mkinitcpio >/dev/null; then
             sudo mkinitcpio -P
         fi
         
-        echo "✅ Plymouth activé avec le thème $selected"
+        echo "✅ Plymouth configuré avec le thème $selected"
         echo "🔄 Redémarrez pour voir les changements"
+        echo "💡 Si Plymouth ne s'affiche pas, vérifiez que 'quiet splash' est dans GRUB_CMDLINE_LINUX_DEFAULT"
     else
         echo "❌ Fichier $selected.plymouth introuvable dans $PLYMOUTH_DIR/$selected/"
         echo "🔍 Contenu du dossier :"
@@ -326,7 +369,58 @@ function activer_splashscreen_kde() {
 
     # Trouver les fichiers splashscreen
     splash_files=()
-    while IFS= read -r -d $'\0' file; do
+    while IFS= read -r -d 
+
+# Fonction pour tester Plymouth
+function tester_plymouth() {
+    echo "🧪 Test de Plymouth..."
+    
+    # Vérifier l'installation
+    if ! command -v plymouth >/dev/null; then
+        echo "❌ Plymouth n'est pas installé"
+        return 1
+    fi
+    
+    # Afficher le thème actuel
+    current_theme=""
+    if [ -f /etc/plymouth/plymouthd.conf ]; then
+        current_theme=$(grep "Theme=" /etc/plymouth/plymouthd.conf 2>/dev/null | cut -d'=' -f2)
+    fi
+    
+    echo "📋 Thème actuel: ${current_theme:-aucun}"
+    
+    # Lister les thèmes installés
+    echo "📂 Thèmes disponibles dans $PLYMOUTH_DIR:"
+    ls -1 "$PLYMOUTH_DIR" 2>/dev/null | while read theme; do
+        if [ -f "$PLYMOUTH_DIR/$theme/$theme.plymouth" ]; then
+            echo "  ✅ $theme"
+        else
+            echo "  ❌ $theme (fichier .plymouth manquant)"
+        fi
+    done
+    
+    # Vérifier GRUB
+    if grep -q "quiet splash" "$GRUB_FILE" 2>/dev/null; then
+        echo "✅ GRUB configuré avec 'quiet splash'"
+    else
+        echo "⚠️ GRUB ne contient pas 'quiet splash'"
+        echo "💡 Ajoutez 'quiet splash' à GRUB_CMDLINE_LINUX_DEFAULT"
+    fi
+    
+    # Test avec un thème système
+    echo ""
+    read -p "🔬 Voulez-vous tester Plymouth maintenant? (o/n): " test_now
+    if [[ "$test_now" =~ ^[oO]$ ]]; then
+        echo "⏱️ Test de 5 secondes..."
+        sudo plymouthd --debug --debug-file=/tmp/plymouth-debug.log
+        sudo plymouth --show-splash
+        sleep 5
+        sudo plymouth --quit
+        
+        echo "📋 Log du test:"
+        tail -10 /tmp/plymouth-debug.log 2>/dev/null || echo "Aucun log généré"
+    fi
+}\0' file; do
         splash_files+=("$file")
     done < <(find "$REPO_DIR/splashscreens" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" \) -print0)
 
@@ -354,31 +448,35 @@ function activer_splashscreen_kde() {
     echo "🖌️ Application de $selected_name..."
     
     # Identifier la version de KDE
-    if [ -n "$KDE_SESSION_VERSION" ] || [ "$DESKTOP_SESSION" = "plasma" ]; then
-        # KDE Plasma détecté
-        THEME_DIR="$HOME/.local/share/plasma/look-and-feel/org.kde.bear-splash"
+    if [ -n "$KDE_SESSION_VERSION" ] || [ "$DESKTOP_SESSION" = "plasma" ] || pgrep -x "plasmashell" >/dev/null; then
+        # Nom du thème fixe et simple
+        THEME_NAME="bearsplash"
+        THEME_DIR="$HOME/.local/share/plasma/look-and-feel/$THEME_NAME"
+        
+        # Supprimer l'ancien thème s'il existe
+        rm -rf "$THEME_DIR"
         
         # Créer la structure complète du thème
         mkdir -p "$THEME_DIR/contents/splash"
         mkdir -p "$THEME_DIR/contents/splash/images"
         
-        # Copier l'image
+        # Copier l'image avec un nom standard
         cp "$selected" "$THEME_DIR/contents/splash/images/background.png"
         
-        # Créer le fichier metadata.desktop
+        # Créer le fichier metadata.desktop avec le bon nom
         cat > "$THEME_DIR/metadata.desktop" <<EOF
 [Desktop Entry]
 Name=Bear Splash
-Comment=Custom Bear Splashscreen
+Comment=Custom Bear Splashscreen by PapaOursPolaire
 X-KDE-PluginInfo-Author=PapaOursPolaire
-X-KDE-PluginInfo-Name=org.kde.bear-splash
+X-KDE-PluginInfo-Name=$THEME_NAME
 X-KDE-PluginInfo-Version=1.0
 X-KDE-PluginInfo-License=GPL
 X-KDE-ServiceTypes=Plasma/LookAndFeel
 Type=Service
 EOF
 
-        # Créer le fichier Splash.qml
+        # Créer le fichier Splash.qml simple et fonctionnel
         cat > "$THEME_DIR/contents/splash/Splash.qml" <<EOF
 import QtQuick 2.5
 
@@ -391,6 +489,9 @@ Rectangle {
     onStageChanged: {
         if (stage == 1) {
             introAnimation.running = true
+        } else if (stage == 5) {
+            // Fin du splash
+            backgroundImage.opacity = 1
         }
     }
     
@@ -399,6 +500,7 @@ Rectangle {
         anchors.fill: parent
         source: "images/background.png"
         fillMode: Image.PreserveAspectCrop
+        smooth: true
         opacity: 0
         
         PropertyAnimation on opacity {
@@ -406,63 +508,81 @@ Rectangle {
             running: false
             from: 0
             to: 1
-            duration: 1000
+            duration: 800
             easing.type: Easing.InOutQuad
         }
     }
     
-    // Animation de points de chargement
-    Row {
+    // Indicateur de chargement simple
+    Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 100
-        spacing: 10
+        anchors.bottomMargin: 80
+        width: 200
+        height: 4
+        color: "rgba(255,255,255,0.2)"
+        radius: 2
         
-        Repeater {
-            model: 3
-            Rectangle {
-                width: 10
-                height: 10
-                radius: 5
-                color: "white"
-                opacity: 0.3
-                
-                SequentialAnimation on opacity {
-                    running: true
-                    loops: Animation.Infinite
-                    PauseAnimation { duration: index * 200 }
-                    NumberAnimation { from: 0.3; to: 1; duration: 600 }
-                    NumberAnimation { from: 1; to: 0.3; duration: 600 }
-                }
+        Rectangle {
+            id: progressBar
+            anchors.left: parent.left
+            anchors.top: parent.top
+            height: parent.height
+            width: 0
+            color: "white"
+            radius: parent.radius
+            
+            PropertyAnimation on width {
+                running: introAnimation.running
+                from: 0
+                to: parent.width
+                duration: 2000
+                easing.type: Easing.OutCubic
             }
         }
     }
 }
 EOF
 
-        # Appliquer le thème avec lookandfeeltool si disponible
-        if command -v lookandfeeltool >/dev/null 2>&1; then
-            lookandfeeltool -a org.kde.bear-splash
-            echo "✅ Splashscreen appliqué avec lookandfeeltool!"
-            echo "🔄 Déconnectez-vous et reconnectez-vous pour voir les changements"
-        else
-            # Alternative avec kwriteconfig5
-            if command -v kwriteconfig5 >/dev/null 2>&1; then
-                kwriteconfig5 --file ksplashrc --group KSplash --key Theme org.kde.bear-splash
-                echo "✅ Splashscreen configuré!"
-                echo "🔄 Déconnectez-vous et reconnectez-vous pour voir les changements"
-            else
-                echo "⚠️ Configuration manuelle requise :"
-                echo "   1. Ouvrez Paramètres système"
-                echo "   2. Allez dans Apparence > Écran de démarrage"
-                echo "   3. Sélectionnez 'Bear Splash'"
-                echo "   4. Appliquez les changements"
-            fi
+        # Nettoyer les anciennes configurations
+        if command -v kwriteconfig5 >/dev/null; then
+            kwriteconfig5 --file ksplashrc --group KSplash --key Theme ""
+            sleep 1
         fi
         
+        # Appliquer le thème
+        echo "⚙️ Application du thème..."
+        if command -v lookandfeeltool >/dev/null 2>&1; then
+            lookandfeeltool -a "$THEME_NAME" 2>/dev/null || {
+                echo "⚠️ Erreur avec lookandfeeltool, essai avec kwriteconfig5..."
+                if command -v kwriteconfig5 >/dev/null; then
+                    kwriteconfig5 --file ksplashrc --group KSplash --key Theme "$THEME_NAME"
+                    # Redémarrer KDE pour appliquer les changements
+                    kquitapp5 plasmashell 2>/dev/null
+                    sleep 2
+                    kstart5 plasmashell 2>/dev/null &
+                fi
+            }
+        elif command -v kwriteconfig5 >/dev/null; then
+            kwriteconfig5 --file ksplashrc --group KSplash --key Theme "$THEME_NAME"
+            echo "✅ Configuration écrite dans ksplashrc"
+        else
+            echo "⚠️ Impossible d'appliquer automatiquement le thème"
+        fi
+        
+        echo "✅ Splashscreen '$selected_name' installé!"
+        echo "📁 Dossier: $THEME_DIR"
+        echo "🔄 Déconnectez-vous et reconnectez-vous pour voir les changements"
+        echo ""
+        echo "📋 En cas de problème, configuration manuelle:"
+        echo "   1. Paramètres système → Apparence → Écran de démarrage"
+        echo "   2. Sélectionnez 'Bear Splash'"
+        echo "   3. Appliquez"
+        
     else
-        echo "❌ KDE Plasma non détecté. Cette fonctionnalité est spécifique à KDE."
-        echo "🖥️ Environnement actuel : ${DESKTOP_SESSION:-inconnu}"
+        echo "❌ KDE Plasma non détecté."
+        echo "🖥️ Environnement actuel: ${DESKTOP_SESSION:-inconnu}"
+        echo "💡 Cette fonctionnalité nécessite KDE Plasma"
         return 1
     fi
 }
