@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 37.0, mise à jour le 14/08/2025 14:25
+# Version 38.0, mise à jour le 14/08/2025 14:40
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -637,7 +637,15 @@ function activer_fond_anime_kde() {
 
     echo -e "\n🎥 Installation de Smart Video Wallpaper Reborn pour KDE Plasma"
 
-    # Vérifier les dépendances
+    # Vérifier et installer Python 3 et pip3
+    if ! command -v python3 &>/dev/null; then
+        echo "🔧 Installation de Python 3..."
+        sudo apt install python3 -y || sudo pacman -S python --noconfirm || sudo dnf install python3 -y || {
+            echo "❌ Échec de l'installation de Python 3."
+            return 1
+        }
+    fi
+
     if ! command -v pip3 &>/dev/null; then
         echo "🔧 Installation de pip3..."
         sudo apt install python3-pip -y || sudo pacman -S python-pip --noconfirm || sudo dnf install python3-pip -y || {
@@ -646,16 +654,39 @@ function activer_fond_anime_kde() {
         }
     fi
 
-    # Installer Smart Video Wallpaper Reborn
-    echo "📦 Installation du paquet..."
-    pip3 install --user smartvideowallpaper-reborn || {
+    # Installer les dépendances système nécessaires
+    echo "🔧 Installation des dépendances système..."
+    sudo apt install python3-venv python3-wheel python3-setuptools -y || \
+    sudo pacman -S python-virtualenv python-wheel python-setuptools --noconfirm || \
+    sudo dnf install python3-virtualenv python3-wheel python3-setuptools -y || {
+        echo "⚠️ Impossible d'installer toutes les dépendances système, continuation quand même..."
+    }
+
+    # Installer Smart Video Wallpaper Reborn avec pip
+    echo "📦 Installation de Smart Video Wallpaper Reborn..."
+    pip3 install --user --upgrade smartvideowallpaper-reborn || {
         echo "❌ Échec de l'installation de Smart Video Wallpaper Reborn."
-        return 1
+        echo "⚙️ Tentative alternative avec pipx..."
+        if ! command -v pipx &>/dev/null; then
+            pip3 install --user pipx
+            python3 -m pipx ensurepath
+        fi
+        pipx install smartvideowallpaper-reborn || {
+            echo "❌ Échec définitif de l'installation."
+            return 1
+        }
     }
 
     # Démarrer l'interface graphique
     echo "🚀 Lancement de Smart Video Wallpaper..."
-    python3 -m smartvideowallpaper &
+    if command -v smartvideowallpaper &>/dev/null; then
+        smartvideowallpaper &
+    elif command -v python3 &>/dev/null; then
+        python3 -m smartvideowallpaper &
+    else
+        echo "❌ Impossible de trouver le bon commandement pour lancer Smart Video Wallpaper"
+        return 1
+    fi
 
     # Attendre que l'interface s'ouvre
     sleep 3
@@ -667,12 +698,8 @@ function activer_fond_anime_kde() {
     echo "2. Ajustez les paramètres si nécessaire"
     echo "3. Cliquez sur 'Apply' pour activer le fond animé"
     echo "4. Fermez la fenêtre une fois configuré"
-
-    # Vérification de l'installation
-    if ! pgrep -f "smartvideowallpaper" &>/dev/null; then
-        echo "⚠️ Le lancement automatique a échoué. Essayez manuellement avec :"
-        echo "   python3 -m smartvideowallpaper"
-    fi
+    echo ""
+    echo "💡 Pour le désinstaller plus tard : pip3 uninstall smartvideowallpaper-reborn"
 }
 
 # Interface utilisateur
