@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 34.0, mise à jour le 14/08/2025 12:51
+# Version 35.0, mise à jour le 14/08/2025 12:58a
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -245,7 +245,7 @@ function choisir_theme_plymouth() {
 
     echo "Thèmes Plymouth disponibles :"
     local i=1
-    PLYM_KEYS=()
+    declare -a PLYM_KEYS
     
     # Parcourir le dossier plymouth du repo
     for theme in "$REPO_DIR/plymouth"/*; do
@@ -269,7 +269,8 @@ function choisir_theme_plymouth() {
 
     read -p "🔥 Choix du thème Plymouth : " plym_choice
     if ! [[ "$plym_choice" =~ ^[0-9]+$ ]] || ((plym_choice < 1 || plym_choice >= i)); then
-        echo "❌ Choix invalide."; return 1
+        echo "❌ Choix invalide."
+        return 1
     fi
 
     selected="${PLYM_KEYS[$plym_choice]}"
@@ -368,59 +369,8 @@ function activer_splashscreen_kde() {
     fi
 
     # Trouver les fichiers splashscreen
-    splash_files=()
-    while IFS= read -r -d 
-
-# Fonction pour tester Plymouth
-function tester_plymouth() {
-    echo "🧪 Test de Plymouth..."
-    
-    # Vérifier l'installation
-    if ! command -v plymouth >/dev/null; then
-        echo "❌ Plymouth n'est pas installé"
-        return 1
-    fi
-    
-    # Afficher le thème actuel
-    current_theme=""
-    if [ -f /etc/plymouth/plymouthd.conf ]; then
-        current_theme=$(grep "Theme=" /etc/plymouth/plymouthd.conf 2>/dev/null | cut -d'=' -f2)
-    fi
-    
-    echo "📋 Thème actuel: ${current_theme:-aucun}"
-    
-    # Lister les thèmes installés
-    echo "📂 Thèmes disponibles dans $PLYMOUTH_DIR:"
-    ls -1 "$PLYMOUTH_DIR" 2>/dev/null | while read theme; do
-        if [ -f "$PLYMOUTH_DIR/$theme/$theme.plymouth" ]; then
-            echo "  ✅ $theme"
-        else
-            echo "  ❌ $theme (fichier .plymouth manquant)"
-        fi
-    done
-    
-    # Vérifier GRUB
-    if grep -q "quiet splash" "$GRUB_FILE" 2>/dev/null; then
-        echo "✅ GRUB configuré avec 'quiet splash'"
-    else
-        echo "⚠️ GRUB ne contient pas 'quiet splash'"
-        echo "💡 Ajoutez 'quiet splash' à GRUB_CMDLINE_LINUX_DEFAULT"
-    fi
-    
-    # Test avec un thème système
-    echo ""
-    read -p "🔬 Voulez-vous tester Plymouth maintenant? (o/n): " test_now
-    if [[ "$test_now" =~ ^[oO]$ ]]; then
-        echo "⏱️ Test de 5 secondes..."
-        sudo plymouthd --debug --debug-file=/tmp/plymouth-debug.log
-        sudo plymouth --show-splash
-        sleep 5
-        sudo plymouth --quit
-        
-        echo "📋 Log du test:"
-        tail -10 /tmp/plymouth-debug.log 2>/dev/null || echo "Aucun log généré"
-    fi
-}\0' file; do
+    declare -a splash_files
+    while IFS= read -r -d $'\0' file; do
         splash_files+=("$file")
     done < <(find "$REPO_DIR/splashscreens" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" \) -print0)
 
@@ -448,7 +398,7 @@ function tester_plymouth() {
     echo "🖌️ Application de $selected_name..."
     
     # Identifier la version de KDE
-    if [ -n "$KDE_SESSION_VERSION" ] || [ "$DESKTOP_SESSION" = "plasma" ] || pgrep -x "plasmashell" >/dev/null; then
+    if [ -n "$KDE_SESSION_VERSION" ] || [ "$DESKTOP_SESSION" = "plasma" ] || pgrep -x "plasmashell" >/dev/null 2>&1; then
         # Nom du thème fixe et simple
         THEME_NAME="bearsplash"
         THEME_DIR="$HOME/.local/share/plasma/look-and-feel/$THEME_NAME"
@@ -464,12 +414,12 @@ function tester_plymouth() {
         cp "$selected" "$THEME_DIR/contents/splash/images/background.png"
         
         # Créer le fichier metadata.desktop avec le bon nom
-        cat > "$THEME_DIR/metadata.desktop" <<EOF
+        cat > "$THEME_DIR/metadata.desktop" << 'EOF'
 [Desktop Entry]
 Name=Bear Splash
 Comment=Custom Bear Splashscreen by PapaOursPolaire
 X-KDE-PluginInfo-Author=PapaOursPolaire
-X-KDE-PluginInfo-Name=$THEME_NAME
+X-KDE-PluginInfo-Name=bearsplash
 X-KDE-PluginInfo-Version=1.0
 X-KDE-PluginInfo-License=GPL
 X-KDE-ServiceTypes=Plasma/LookAndFeel
@@ -477,7 +427,7 @@ Type=Service
 EOF
 
         # Créer le fichier Splash.qml simple et fonctionnel
-        cat > "$THEME_DIR/contents/splash/Splash.qml" <<EOF
+        cat > "$THEME_DIR/contents/splash/Splash.qml" << 'EOF'
 import QtQuick 2.5
 
 Rectangle {
@@ -490,7 +440,6 @@ Rectangle {
         if (stage == 1) {
             introAnimation.running = true
         } else if (stage == 5) {
-            // Fin du splash
             backgroundImage.opacity = 1
         }
     }
@@ -513,7 +462,6 @@ Rectangle {
         }
     }
     
-    // Indicateur de chargement simple
     Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
@@ -553,16 +501,14 @@ EOF
         # Appliquer le thème
         echo "⚙️ Application du thème..."
         if command -v lookandfeeltool >/dev/null 2>&1; then
-            lookandfeeltool -a "$THEME_NAME" 2>/dev/null || {
+            if lookandfeeltool -a "$THEME_NAME" 2>/dev/null; then
+                echo "✅ Thème appliqué avec lookandfeeltool"
+            else
                 echo "⚠️ Erreur avec lookandfeeltool, essai avec kwriteconfig5..."
                 if command -v kwriteconfig5 >/dev/null; then
                     kwriteconfig5 --file ksplashrc --group KSplash --key Theme "$THEME_NAME"
-                    # Redémarrer KDE pour appliquer les changements
-                    kquitapp5 plasmashell 2>/dev/null
-                    sleep 2
-                    kstart5 plasmashell 2>/dev/null &
                 fi
-            }
+            fi
         elif command -v kwriteconfig5 >/dev/null; then
             kwriteconfig5 --file ksplashrc --group KSplash --key Theme "$THEME_NAME"
             echo "✅ Configuration écrite dans ksplashrc"
@@ -584,6 +530,68 @@ EOF
         echo "🖥️ Environnement actuel: ${DESKTOP_SESSION:-inconnu}"
         echo "💡 Cette fonctionnalité nécessite KDE Plasma"
         return 1
+    fi
+}
+
+# Fonction pour tester Plymouth
+function tester_plymouth() {
+    echo "🧪 Test de Plymouth..."
+    
+    # Vérifier l'installation
+    if ! command -v plymouth >/dev/null; then
+        echo "❌ Plymouth n'est pas installé"
+        return 1
+    fi
+    
+    # Afficher le thème actuel
+    current_theme=""
+    if [ -f /etc/plymouth/plymouthd.conf ]; then
+        current_theme=$(grep "Theme=" /etc/plymouth/plymouthd.conf 2>/dev/null | cut -d'=' -f2)
+    fi
+    
+    echo "📋 Thème actuel: ${current_theme:-aucun}"
+    
+    # Lister les thèmes installés
+    echo "📂 Thèmes disponibles dans $PLYMOUTH_DIR:"
+    if [ -d "$PLYMOUTH_DIR" ]; then
+        for theme_dir in "$PLYMOUTH_DIR"/*; do
+            if [ -d "$theme_dir" ]; then
+                theme=$(basename "$theme_dir")
+                if [ -f "$theme_dir/$theme.plymouth" ]; then
+                    echo "  ✅ $theme"
+                else
+                    echo "  ❌ $theme (fichier .plymouth manquant)"
+                fi
+            fi
+        done
+    fi
+    
+    # Vérifier GRUB
+    if grep -q "quiet splash" "$GRUB_FILE" 2>/dev/null; then
+        echo "✅ GRUB configuré avec 'quiet splash'"
+    else
+        echo "⚠️ GRUB ne contient pas 'quiet splash'"
+        echo "💡 Ajoutez 'quiet splash' à GRUB_CMDLINE_LINUX_DEFAULT"
+    fi
+    
+    # Test avec un thème système
+    echo ""
+    read -p "🔬 Voulez-vous tester Plymouth maintenant? (o/n): " test_now
+    if [[ "$test_now" =~ ^[oO]$ ]]; then
+        echo "⏱️ Test de 5 secondes..."
+        sudo plymouthd --debug --debug-file=/tmp/plymouth-debug.log &
+        sleep 1
+        sudo plymouth --show-splash
+        sleep 5
+        sudo plymouth --quit
+        sudo pkill plymouthd 2>/dev/null
+        
+        echo "📋 Log du test:"
+        if [ -f /tmp/plymouth-debug.log ]; then
+            tail -10 /tmp/plymouth-debug.log
+        else
+            echo "Aucun log généré"
+        fi
     fi
 }
 
