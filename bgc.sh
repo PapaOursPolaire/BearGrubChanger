@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 44.3, mise à jour le 14/08/2025 19:43
+# Version 44.4, mise à jour le 14/08/2025 21:30
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -423,9 +423,9 @@ function activer_splashscreen_kde() {
         return 1
     fi
 
-    # Trouver les fichiers splashscreen (GIF prioritaire)
+        # Trouver les fichiers splashscreen (GIF prioritaire)
     declare -a splash_files
-    while IFS= read -r -d
+    while IFS= read -r -d $'\0' file; do
         splash_files+=("$file")
     done < <(find "$REPO_DIR/splashscreens" -maxdepth 1 -type f \( -iname "*.gif" -o -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) -print0)
 
@@ -690,7 +690,9 @@ function activer_fond_anime_kde() {
     declare -a video_files
     
     # Chercher des vidéos dans plusieurs emplacements
-    while IFS= read -r -d 
+    while IFS= read -r -d $'\0' file; do
+        video_files+=("$file")
+    done < <(find "$VIDEOS_DIR" "$HOME/Downloads" "$HOME/Téléchargements" "$HOME/Desktop" "$HOME/Bureau" 2>/dev/null -maxdepth 2 -type f \( -iname "*.mp4" -o -iname "*.webm" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv" \) -print0 2>/dev/null | head -20)
     
     # Vérifier que le fichier existe et est une vidéo
     if [ ! -f "$video_path" ]; then
