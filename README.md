@@ -1,4 +1,4 @@
-🐻 BearGrubChanger (GBC)
+🐻 BearGrubChanger (BGC)
 
 BearGrubChanger est un utilitaire shell interactif permettant de personnaliser facilement le menu de démarrage GRUB sur les distributions Linux (Kubuntu, Ubuntu, Debian, Arch, etc.).
 Conçu pour les passionnés de personnalisation et les mateurs des distributions Linux, GBC simplifie le processus de changement de thème GRUB en quelques secondes, sans manipulation manuelle complexe.
