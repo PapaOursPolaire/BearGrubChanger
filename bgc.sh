@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 36.0, mise à jour le 14/08/2025 14:13
+# Version 37.0, mise à jour le 14/08/2025 14:25
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -635,135 +635,44 @@ function activer_fond_anime_kde() {
         return 1
     fi
 
-    # Vérifier que zenity est installé
-    if ! command -v zenity >/dev/null; then
-        echo "❌ Zenity n'est pas installé. Installation en cours..."
-        sudo apt install zenity -y || sudo pacman -S zenity --noconfirm || sudo dnf install zenity -y || {
-            echo "❌ Impossible d'installer zenity. Installez-le manuellement."
+    echo -e "\n🎥 Installation de Smart Video Wallpaper Reborn pour KDE Plasma"
+
+    # Vérifier les dépendances
+    if ! command -v pip3 &>/dev/null; then
+        echo "🔧 Installation de pip3..."
+        sudo apt install python3-pip -y || sudo pacman -S python-pip --noconfirm || sudo dnf install python3-pip -y || {
+            echo "❌ Échec de l'installation de pip3."
             return 1
         }
     fi
 
-    echo -e "\n🎥 Sélection d'une vidéo pour le fond d'écran animé"
-
-    # Sélection du fichier via zenity
-    video_path=$(zenity --file-selection \
-        --title="Sélectionnez une vidéo pour le fond d'écran animé" \
-        --file-filter="Vidéos | *.mp4 *.webm *.mkv *.mov *.avi" \
-        --filename="$HOME/Vidéos/")
-
-    # Vérifier que l'utilisateur a sélectionné un fichier
-    if [ -z "$video_path" ]; then
-        echo "❌ Aucune vidéo sélectionnée."
+    # Installer Smart Video Wallpaper Reborn
+    echo "📦 Installation du paquet..."
+    pip3 install --user smartvideowallpaper-reborn || {
+        echo "❌ Échec de l'installation de Smart Video Wallpaper Reborn."
         return 1
-    fi
-
-    # Vérifier que le fichier existe
-    if [ ! -f "$video_path" ]; then
-        zenity --error --text="Le fichier spécifié n'existe pas."
-        return 1
-    fi
-
-    # Vérifier que c'est bien une vidéo
-    if ! file "$video_path" | grep -qiE "video|media"; then
-        zenity --error --text="Le fichier ne semble pas être une vidéo valide."
-        return 1
-    fi
-
-    # Créer le dossier pour le fond d'écran animé
-    THEME_NAME="bearanimatedbg"
-    THEME_DIR="$HOME/.local/share/plasma/wallpapers/$THEME_NAME"
-    rm -rf "$THEME_DIR"  # Supprimer l'ancienne version si elle existe
-    mkdir -p "$THEME_DIR/contents"
-
-    # Copier la vidéo avec un nom fixe
-    cp "$video_path" "$THEME_DIR/contents/video.mp4"
-
-    # Créer les fichiers de configuration
-    cat > "$THEME_DIR/metadata.desktop" <<EOF
-[Desktop Entry]
-Name=Bear Animated Background
-Comment=Custom animated background by PapaOursPolaire
-X-KDE-PluginInfo-Author=PapaOursPolaire
-X-KDE-PluginInfo-Name=$THEME_NAME
-X-KDE-PluginInfo-Version=1.0
-X-KDE-PluginInfo-License=GPL
-X-KDE-PluginInfo-Website=https://github.com/PapaOursPolaire/BearGrubChanger
-X-KDE-PlasmaAPI=5.0
-X-KDE-ServiceTypes=Plasma/Wallpaper
-Type=Service
-Icon=preferences-desktop-wallpaper
-EOF
-
-    cat > "$THEME_DIR/contents/main.xml" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<wallpapers version="1.0">
-    <wallpaper>
-        <name>Bear Animated Background</name>
-        <filename>contents/video.mp4</filename>
-        <fillmode>scaled</fillmode>
-        <enabled>true</enabled>
-    </wallpaper>
-</wallpapers>
-EOF
-
-    cat > "$THEME_DIR/contents/main.qml" <<EOF
-import QtQuick 2.0
-import QtMultimedia 5.8
-import org.kde.plasma.core 2.0 as PlasmaCore
-
-Item {
-    property bool fill: true
-    
-    Video {
-        id: videoPlayer
-        anchors.fill: parent
-        source: "../contents/video.mp4"
-        loops: MediaPlayer.Infinite
-        fillMode: fill ? VideoOutput.PreserveAspectCrop : VideoOutput.PreserveAspectFit
-        autoPlay: true
-        muted: false
     }
-    
-    Component.onCompleted: {
-        videoPlayer.play()
-    }
-}
-EOF
 
-    # Créer un fichier de config pour le mode plein écran
-    cat > "$THEME_DIR/contents/config/main.xml" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<config>
-    <group name="General">
-        <entry name="fillMode" type="int">
-            <default>2</default>
-        </entry>
-    </group>
-</config>
-EOF
+    # Démarrer l'interface graphique
+    echo "🚀 Lancement de Smart Video Wallpaper..."
+    python3 -m smartvideowallpaper &
 
-    echo "✅ Fond d'écran animé configuré!"
-    echo "⚙️ Application du fond d'écran..."
+    # Attendre que l'interface s'ouvre
+    sleep 3
 
-    # Essayer d'appliquer automatiquement le fond d'écran
-    if command -v dbus-send >/dev/null; then
-        dbus-send --session --dest=org.kde.plasmashell --type=method_call /PlasmaShell org.kde.PlasmaShell.evaluateScript 'string:
-        var allDesktops = desktops();
-        for (i=0;i<allDesktops.length;i++) {
-            d = allDesktops[i];
-            d.wallpaperPlugin = "'$THEME_NAME'";
-        }'
+    # Instructions pour l'utilisateur
+    echo -e "\n✅ Smart Video Wallpaper Reborn est maintenant lancé !"
+    echo "📌 Instructions :"
+    echo "1. Cliquez sur 'Add Video' pour sélectionner votre vidéo"
+    echo "2. Ajustez les paramètres si nécessaire"
+    echo "3. Cliquez sur 'Apply' pour activer le fond animé"
+    echo "4. Fermez la fenêtre une fois configuré"
+
+    # Vérification de l'installation
+    if ! pgrep -f "smartvideowallpaper" &>/dev/null; then
+        echo "⚠️ Le lancement automatique a échoué. Essayez manuellement avec :"
+        echo "   python3 -m smartvideowallpaper"
     fi
-
-    # Message final avec zenity
-    zenity --info --text="Fond d'écran animé installé avec succès!\n\nPour l'appliquer manuellement:\n1. Clic droit sur le bureau → Configurer le fond d'écran\n2. Sélectionnez 'Bear Animated Background'\n3. Cliquez sur 'Appliquer'" \
-        --title="Installation réussie" --width=400
-
-    echo -e "\n✅ Fond d'écran animé installé!"
-    echo "📁 Dossier: $THEME_DIR"
-    echo "🔄 Si le fond ne s'affiche pas immédiatement, redémarrez Plasma avec:"
-    echo "   kquitapp5 plasmashell && kstart5 plasmashell"
 }
 
 # Interface utilisateur
