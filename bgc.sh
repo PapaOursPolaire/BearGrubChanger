@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 43.1, mise à jour le 14/08/2025 19:35
+# Version 44.1, mise à jour le 14/08/2025 19:41
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -670,27 +670,384 @@ function activer_fond_anime_kde() {
 
     echo -e "\n🎬 ACTIVATION DE FOND D'ÉCRAN VIDÉO POUR KDE PLASMA"
     
-    # Ouvrir l'explorateur de fichiers sur le dossier Videos
-    VIDEOS_DIR="$HOME/Videos"
-    [ ! -d "$VIDEOS_DIR" ] && VIDEOS_DIR="$HOME/Vidéos"
-    [ ! -d "$VIDEOS_DIR" ] && VIDEOS_DIR="$HOME"
+    # Définir les dossiers vidéos possibles
+    VIDEOS_DIRS=("$HOME/Videos" "$HOME/Vidéos" "$HOME/Downloads" "$HOME/Téléchargements" "$HOME")
+    VIDEOS_DIR=""
     
-    echo "📂 Ouverture de l'explorateur sur le dossier vidéos..."
+    # Trouver le premier dossier qui existe
+    for dir in "${VIDEOS_DIRS[@]}"; do
+        if [ -d "$dir" ]; then
+            VIDEOS_DIR="$dir"
+            break
+        fi
+    done
     
-    # Lancer l'explorateur selon l'environnement
-    if command -v dolphin >/dev/null; then
-        dolphin "$VIDEOS_DIR" &
-    elif command -v nautilus >/dev/null; then
-        nautilus "$VIDEOS_DIR" &
-    elif command -v thunar >/dev/null; then
-        thunar "$VIDEOS_DIR" &
-    else
-        xdg-open "$VIDEOS_DIR" &
+    echo "📂 Dossiers vidéos détectés:"
+    echo "   $VIDEOS_DIR"
+    
+    # Méthode 1: Lister les vidéos disponibles directement
+    echo -e "\n🔍 Recherche de vidéos dans les dossiers courants..."
+    declare -a video_files
+    
+    # Chercher des vidéos dans plusieurs emplacements
+    while IFS= read -r -d 
+    
+    # Vérifier que le fichier existe et est une vidéo
+    if [ ! -f "$video_path" ]; then
+        echo "❌ Fichier non trouvé : $video_path"
+        echo "💡 Vérifiez le chemin et réessayez"
+        return 1
     fi
     
-    echo "🎥 Sélectionnez votre fichier vidéo (.mp4, .webm, .mkv, .avi) dans l'explorateur"
-    echo "📝 Puis saisissez le chemin complet du fichier :"
-    read -p "📂 Chemin vers la vidéo : " video_path
+    # Vérifier l'extension
+    case "${video_path,,}" in
+        *.mp4|*.webm|*.mkv|*.avi|*.mov|*.flv)
+            echo "✅ Format vidéo supporté détecté"
+            ;;
+        *)
+            echo "❌ Format non supporté. Utilisez : mp4, webm, mkv, avi, mov, flv"
+            return 1
+            ;;
+    esac
+    
+    local video_name=$(basename "$video_path")
+    
+    echo -e "\n🛠️ Création du fond d'écran vidéo pour '$video_name'..."
+
+    # Installer les dépendances nécessaires
+    echo "📦 Vérification des dépendances multimédia..."
+    if command -v apt >/dev/null 2>&1; then
+        sudo apt install qml-module-qtmultimedia gstreamer1.0-plugins-good gstreamer1.0-plugins-bad -y >/dev/null 2>&1
+    elif command -v pacman >/dev/null 2>&1; then
+        sudo pacman -S qt5-multimedia gst-plugins-good gst-plugins-bad --noconfirm >/dev/null 2>&1
+    elif command -v dnf >/dev/null 2>&1; then
+        sudo dnf install qt5-qtmultimedia gstreamer1-plugins-good gstreamer1-plugins-bad-free -y >/dev/null 2>&1
+    fi
+
+    # Créer le dossier du plugin
+    local plugin_dir="$HOME/.local/share/plasma/wallpapers/bear_video"
+    rm -rf "$plugin_dir"
+    mkdir -p "$plugin_dir/contents/ui"
+
+    # Fichier metadata.desktop
+    cat > "$plugin_dir/metadata.desktop" <<EOF
+[Desktop Entry]
+Name=Bear Video Wallpaper
+Comment=Video wallpaper by BearGrubChanger
+X-KDE-PluginInfo-Author=PapaOursPolaire
+X-KDE-PluginInfo-Name=bear_video
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-Website=https://github.com/PapaOursPolaire/BearGrubChanger
+X-KDE-PluginInfo-Category=Video
+X-KDE-PluginInfo-License=GPL
+X-KDE-PluginInfo-EnabledByDefault=true
+X-KDE-ServiceTypes=Plasma/Wallpaper
+X-Plasma-API=declarativeappletscript
+X-Plasma-MainScript=ui/main.qml
+Type=Service
+EOF
+
+    # Fichier main.qml optimisé avec gestion d'erreurs améliorée
+    cat > "$plugin_dir/contents/ui/main.qml" <<EOF
+import QtQuick 2.12
+import QtMultimedia 5.12
+
+Rectangle {
+    id: root
+    color: "black"
+    
+    property string videoPath: "file://$video_path"
+    property bool videoLoaded: false
+    
+    Text {
+        id: statusText
+        anchors.centerIn: parent
+        text: "Chargement de la vidéo..."
+        color: "white"
+        font.pointSize: 12
+        visible: !videoLoaded
+    }
+    
+    MediaPlayer {
+        id: mediaplayer
+        source: videoPath
+        loops: MediaPlayer.Infinite
+        muted: true
+        autoPlay: false
+        
+        onError: {
+            console.log("Erreur vidéo:", errorString)
+            statusText.text = "Erreur: " + errorString
+            statusText.visible = true
+        }
+        
+        onStatusChanged: {
+            console.log("Status:", status)
+            if (status === MediaPlayer.Loaded) {
+                videoLoaded = true
+                statusText.visible = false
+                play()
+            } else if (status === MediaPlayer.InvalidMedia) {
+                statusText.text = "Format vidéo non supporté"
+                statusText.visible = true
+            }
+        }
+        
+        onPlaybackStateChanged: {
+            console.log("Playback state:", playbackState)
+        }
+    }
+    
+    VideoOutput {
+        id: videoOutput
+        anchors.fill: parent
+        source: mediaplayer
+        fillMode: VideoOutput.PreserveAspectCrop
+        visible: videoLoaded
+        
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                if (mediaplayer.playbackState === MediaPlayer.PlayingState) {
+                    mediaplayer.pause()
+                    statusText.text = "Vidéo en pause (clic pour reprendre)"
+                    statusText.visible = true
+                } else {
+                    mediaplayer.play()
+                    statusText.visible = false
+                }
+            }
+        }
+    }
+    
+    Timer {
+        id: loadTimer
+        interval: 3000
+        running: true
+        onTriggered: {
+            if (!videoLoaded) {
+                statusText.text = "Chargement en cours...\nClic pour réessayer"
+            }
+        }
+    }
+    
+    Component.onCompleted: {
+        console.log("Chargement vidéo:", videoPath)
+        mediaplayer.play()
+    }
+    
+    Component.onDestruction: {
+        mediaplayer.stop()
+    }
+}
+EOF
+
+    # Reconstruire le cache de KDE
+    echo "🔄 Reconstruction du cache KDE..."
+    kbuildsycoca5 --noincremental >/dev/null 2>&1
+
+    # Configuration du fond d'écran via plasma-apply-wallpaperimage si disponible
+    echo "⚙️ Tentative d'application automatique..."
+    
+    # Essayer différentes méthodes d'application
+    if command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then
+        # Méthode 1: plasma-apply-wallpaperimage (ne fonctionne que pour les images)
+        echo "📝 Utilisation de plasma-apply-wallpaperimage..."
+    fi
+    
+    # Méthode 2: Configuration directe via dbus
+    if command -v qdbus >/dev/null 2>&1; then
+        echo "📝 Configuration via DBus..."
+        # Essayer de configurer le bureau principal
+        qdbus org.kde.plasmashell /PlasmaShell evaluateScript "
+            var allDesktops = desktops();
+            for (i = 0; i < allDesktops.length; i++) {
+                d = allDesktops[i];
+                d.wallpaperPlugin = 'bear_video';
+                d.currentConfigGroup = Array('Wallpaper', 'bear_video', 'General');
+            }
+        " 2>/dev/null || echo "⚠️ Configuration DBus échouée"
+    fi
+    
+    # Redémarrer plasmashell pour appliquer les changements
+    echo "🔄 Redémarrage de Plasmashell..."
+    killall plasmashell 2>/dev/null
+    sleep 3
+    kstart plasmashell >/dev/null 2>&1 &
+    
+    echo -e "\n✅ FOND D'ÉCRAN VIDÉO CONFIGURÉ !"
+    echo "🎬 Vidéo: $video_name"
+    echo ""
+    echo "📌 Si le fond d'écran ne s'applique pas automatiquement :"
+    echo "1. Clic droit sur le bureau → 'Configurer le bureau et le fond d'écran'"
+    echo "2. Type de fond d'écran → 'Bear Video Wallpaper'"
+    echo "3. Appliquer"
+    echo ""
+    echo "💡 Le fond d'écran vidéo sera visible dans 5-10 secondes..."
+    echo "🖱️ Clic sur le fond d'écran pour mettre en pause/reprendre"
+}
+}
+
+# Fonction pour tester Plymouth
+function tester_plymouth() {
+    echo "🧪 Test de Plymouth..."
+    
+    # Vérifier l'installation
+    if ! command -v plymouth >/dev/null; then
+        echo "❌ Plymouth n'est pas installé"
+        return 1
+    fi
+    
+    # Afficher le thème actuel
+    current_theme=""
+    if [ -f /etc/plymouth/plymouthd.conf ]; then
+        current_theme=$(grep "Theme=" /etc/plymouth/plymouthd.conf 2>/dev/null | cut -d'=' -f2)
+    fi
+    
+    echo "📋 Thème actuel: ${current_theme:-aucun}"
+    
+    # Lister les thèmes installés
+    echo "📂 Thèmes disponibles dans $PLYMOUTH_DIR:"
+    if [ -d "$PLYMOUTH_DIR" ]; then
+        for theme_dir in "$PLYMOUTH_DIR"/*; do
+            if [ -d "$theme_dir" ]; then
+                theme=$(basename "$theme_dir")
+                if [ -f "$theme_dir/$theme.plymouth" ]; then
+                    echo "  ✅ $theme"
+                else
+                    echo "  ❌ $theme (fichier .plymouth manquant)"
+                fi
+            fi
+        done
+    fi
+    
+    # Vérifier GRUB
+    if grep -q "quiet splash" "$GRUB_FILE" 2>/dev/null; then
+        echo "✅ GRUB configuré avec 'quiet splash'"
+    else
+        echo "⚠️ GRUB ne contient pas 'quiet splash'"
+        echo "💡 Ajoutez 'quiet splash' à GRUB_CMDLINE_LINUX_DEFAULT"
+    fi
+    
+    # Test avec un thème système
+    echo ""
+    read -p "🔬 Voulez-vous tester Plymouth maintenant? (o/n): " test_now
+    if [[ "$test_now" =~ ^[oO]$ ]]; then
+        echo "⏱️ Test de 5 secondes..."
+        sudo plymouthd --debug --debug-file=/tmp/plymouth-debug.log &
+        sleep 1
+        sudo plymouth --show-splash
+        sleep 5
+        sudo plymouth --quit
+        sudo pkill plymouthd 2>/dev/null
+        
+        echo "📋 Log du test:"
+        if [ -f /tmp/plymouth-debug.log ]; then
+            tail -10 /tmp/plymouth-debug.log
+        else
+            echo "Aucun log généré"
+        fi
+    fi
+}
+
+# Interface utilisateur
+function menu_principal() {
+    while true; do
+        echo -e "\n🐻 BearGrubChanger"
+        echo "1. Installer tous les thèmes, polices, icônes + GRUB + Plymouth + SDDM"
+        echo "2. Changer le thème GRUB"
+        echo "3. Appliquer une police pour le menu GRUB"
+        echo "4. Changer la police système (application automatique)"
+        echo "5. Remplacer les icônes GRUB"
+        echo "6. Activer une animation Plymouth"
+        echo "7. Activer un splashscreen KDE Plasma (GIF supporté)"
+        echo "8. Changer le thème SDDM"
+        echo "9. Ajuster le délai de sélection GRUB"
+        echo "10. Fond d'écran animé KDE Plasma (sélection vidéo)"
+        echo "11. Tester Plymouth"
+        echo "0. Quitter"
+        read -p "🎮 Choix : " opt
+
+        case "$opt" in
+            1)
+                verifier_et_installer_grub
+                cloner_depot
+                installer_tous_les_assets
+                forcer_affichage_menu_grub
+                installer_plymouth
+                installer_sddm
+                sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg
+                ;;
+            2) appliquer_theme ;;
+            3) appliquer_police ;;
+            4) appliquer_police_systeme ;;
+            5) remplacer_icones ;;
+            6) choisir_theme_plymouth ;;
+            7) activer_splashscreen_kde ;;
+            8) choisir_theme_sddm ;;
+            9) ajuster_delai_grub ;;
+            10) activer_fond_anime_kde ;;
+            11) tester_plymouth ;;
+            0) echo "👋 Vzy casse-toi d'là "; exit 0 ;;
+            *) echo "❌ Option invalide." ;;
+        esac
+    done
+}
+
+menu_principal\0' file; do
+        video_files+=("$file")
+    done < <(find "$VIDEOS_DIR" "$HOME/Downloads" "$HOME/Téléchargements" "$HOME/Desktop" "$HOME/Bureau" 2>/dev/null -maxdepth 2 -type f \( -iname "*.mp4" -o -iname "*.webm" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv" \) -print0 2>/dev/null | head -20)
+    
+    if [ ${#video_files[@]} -gt 0 ]; then
+        echo -e "\n🎥 VIDÉOS DÉTECTÉES :"
+        for i in "${!video_files[@]}"; do
+            echo "$((i+1)). $(basename "${video_files[$i]}")"
+            echo "    📁 ${video_files[$i]}"
+        done
+        echo "$((${#video_files[@]}+1)). 📝 Saisir un chemin manuellement"
+        
+        read -p "🎯 Choisissez une vidéo [1-$((${#video_files[@]}+1))]: " choice
+        
+        if [[ "$choice" =~ ^[0-9]+$ ]] && ((choice >= 1 && choice <= ${#video_files[@]})); then
+            video_path="${video_files[$((choice-1))]}"
+        elif [ "$choice" = "$((${#video_files[@]}+1))" ]; then
+            # Ouvrir l'explorateur en arrière-plan (sans attendre)
+            echo "📂 Ouverture de l'explorateur..."
+            if command -v dolphin >/dev/null; then
+                dolphin "$VIDEOS_DIR" >/dev/null 2>&1 &
+            elif command -v nautilus >/dev/null; then
+                nautilus "$VIDEOS_DIR" >/dev/null 2>&1 &
+            elif command -v thunar >/dev/null; then
+                thunar "$VIDEOS_DIR" >/dev/null 2>&1 &
+            else
+                xdg-open "$VIDEOS_DIR" >/dev/null 2>&1 &
+            fi
+            sleep 2
+            echo "🎥 Saisissez le chemin complet du fichier vidéo :"
+            read -p "📂 Chemin vers la vidéo : " video_path
+        else
+            echo "❌ Choix invalide"
+            return 1
+        fi
+    else
+        echo "⚠️ Aucune vidéo détectée automatiquement"
+        echo "📂 Ouverture de l'explorateur pour sélection manuelle..."
+        
+        # Ouvrir l'explorateur en arrière-plan
+        if command -v dolphin >/dev/null; then
+            dolphin "$VIDEOS_DIR" >/dev/null 2>&1 &
+        elif command -v nautilus >/dev/null; then
+            nautilus "$VIDEOS_DIR" >/dev/null 2>&1 &
+        elif command -v thunar >/dev/null; then
+            thunar "$VIDEOS_DIR" >/dev/null 2>&1 &
+        else
+            xdg-open "$VIDEOS_DIR" >/dev/null 2>&1 &
+        fi
+        
+        sleep 2
+        echo "🎥 Saisissez le chemin complet du fichier vidéo :"
+        read -p "📂 Chemin vers la vidéo : " video_path
+    fi
     
     # Vérifier que le fichier existe et est une vidéo
     if [ ! -f "$video_path" ]; then
