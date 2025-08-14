@@ -626,6 +626,145 @@ function ajuster_delai_grub() {
     echo "Le système appliquera les changements au prochain démarrage."
 }
 
+# Fond d'écran animé KDE Plasma
+function activer_fond_anime_kde() {
+    # Vérifier que KDE Plasma est détecté
+    if [ ! -n "$KDE_SESSION_VERSION" ] && [ "$DESKTOP_SESSION" != "plasma" ] && ! pgrep -x "plasmashell" >/dev/null 2>&1; then
+        echo "❌ KDE Plasma non détecté."
+        echo "🖥️ Environnement actuel: ${DESKTOP_SESSION:-inconnu}"
+        return 1
+    fi
+
+    # Vérifier que l'utilisateur a choisi un gestionnaire de fichiers
+    FILE_MANAGER=""
+    if command -v dolphin >/dev/null; then
+        FILE_MANAGER="dolphin"
+    elif command -v nautilus >/dev/null; then
+        FILE_MANAGER="nautilus"
+    elif command -v thunar >/dev/null; then
+        FILE_MANAGER="thunar"
+    else
+        echo "❌ Aucun gestionnaire de fichiers graphique trouvé (dolphin, nautilus ou thunar)"
+        return 1
+    fi
+
+    # Dossier par défaut pour les vidéos
+    VIDEOS_DIR="$HOME/Vidéos"
+    mkdir -p "$VIDEOS_DIR"
+
+    echo -e "\n🎥 Sélection d'une vidéo pour le fond d'écran animé"
+    echo "Le gestionnaire de fichiers va s'ouvrir dans: $VIDEOS_DIR"
+    echo "Veuillez sélectionner une vidéo (mp4, webm, etc.)"
+    read -p "Appuyez sur Entrée pour continuer..." _
+
+    # Ouvrir le gestionnaire de fichiers
+    $FILE_MANAGER "$VIDEOS_DIR" >/dev/null 2>&1 &
+
+    # Demander le chemin de la vidéo sélectionnée
+    read -p "Entrez le chemin complet de la vidéo sélectionnée: " video_path
+
+    # Vérifier que le fichier existe
+    if [ ! -f "$video_path" ]; then
+        echo "❌ Le fichier spécifié n'existe pas."
+        return 1
+    fi
+
+    # Vérifier que c'est bien une vidéo
+    if ! file "$video_path" | grep -qiE "video|media"; then
+        echo "❌ Le fichier ne semble pas être une vidéo valide."
+        return 1
+    fi
+
+    # Créer le dossier pour le fond d'écran animé
+    THEME_NAME="bearanimatedbg"
+    THEME_DIR="$HOME/.local/share/plasma/wallpapers/$THEME_NAME"
+    mkdir -p "$THEME_DIR/contents"
+
+    # Copier la vidéo
+    cp "$video_path" "$THEME_DIR/contents/video.mp4"
+
+    # Créer les fichiers de configuration
+    cat > "$THEME_DIR/metadata.desktop" <<EOF
+[Desktop Entry]
+Name=Bear Animated Background
+Comment=Custom animated background by PapaOursPolaire
+X-KDE-PluginInfo-Author=PapaOursPolaire
+X-KDE-PluginInfo-Name=$THEME_NAME
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-License=GPL
+X-KDE-PluginInfo-Website=https://github.com/PapaOursPolaire/BearGrubChanger
+X-KDE-PlasmaAPI=5.0
+X-KDE-ServiceTypes=Plasma/Wallpaper
+Type=Service
+EOF
+
+    cat > "$THEME_DIR/contents/default" <<EOF
+[Wallpaper]
+defaultHeight=1080
+defaultWidth=1920
+preferredHeight=1080
+preferredWidth=1920
+defaultBackgroundColor=000000
+defaultFillMode=2
+EOF
+
+    cat > "$THEME_DIR/contents/main.qml" <<EOF
+import QtQuick 2.0
+import QtMultimedia 5.8
+import org.kde.plasma.core 2.0 as PlasmaCore
+
+Item {
+    property bool fill: true
+    
+    Video {
+        id: videoPlayer
+        anchors.fill: parent
+        source: "contents/video.mp4"
+        loops: MediaPlayer.Infinite
+        fillMode: fill ? VideoOutput.PreserveAspectCrop : VideoOutput.PreserveAspectFit
+        autoPlay: true
+    }
+    
+    Component.onCompleted: {
+        videoPlayer.play()
+    }
+}
+EOF
+
+    echo "✅ Fond d'écran animé configuré!"
+    echo "⚙️ Application du fond d'écran..."
+
+    # Essayer d'appliquer automatiquement le fond d'écran
+    if command -v dbus-send >/dev/null; then
+        dbus-send --session --dest=org.kde.plasmashell --type=method_call /PlasmaShell org.kde.PlasmaShell.evaluateScript 'string:
+        var allDesktops = desktops();
+        for (i=0;i<allDesktops.length;i++) {
+            d = allDesktops[i];
+            d.wallpaperPlugin = "org.kde.image";
+            d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
+            d.writeConfig("Image", "file://'$THEME_DIR'/contents/video.mp4");
+        }'
+        
+        sleep 1
+        
+        dbus-send --session --dest=org.kde.plasmashell --type=method_call /PlasmaShell org.kde.PlasmaShell.evaluateScript 'string:
+        var allDesktops = desktops();
+        for (i=0;i<allDesktops.length;i++) {
+            d = allDesktops[i];
+            d.wallpaperPlugin = "'$THEME_NAME'";
+        }'
+    fi
+
+    echo -e "\n✅ Fond d'écran animé installé!"
+    echo "📁 Dossier: $THEME_DIR"
+    echo "🔄 Pour l'appliquer manuellement:"
+    echo "   1. Faites un clic droit sur le bureau → Configurer le fond d'écran"
+    echo "   2. Sélectionnez 'Bear Animated Background'"
+    echo "   3. Cliquez sur 'Appliquer'"
+    echo ""
+    echo "⚠️ Note: La lecture vidéo peut consommer des ressources CPU/GPU"
+}
+
 # Interface utilisateur
 function menu_principal() {
     while true; do
@@ -640,6 +779,7 @@ function menu_principal() {
         echo "8. Changer le thème SDDM"
         echo "9. Ajuster le délai de sélection GRUB"
         echo "10. Diagnostic Plymouth"
+        echo "11. Fond d'écran animé KDE Plasma"
         echo "0. Quitter"
         read -p "🎮 Choix : " opt
 
@@ -662,6 +802,7 @@ function menu_principal() {
             8) choisir_theme_sddm ;;
             9) ajuster_delai_grub ;;
             10) diagnostiquer_plymouth ;;
+            11) activer_fond_anime_kde ;;
             0) echo "👋 Vzy casse-toi d'là"; exit 0 ;;
             *) echo "❌ Option invalide." ;;
         esac
