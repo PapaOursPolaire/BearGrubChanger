@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 40.0, mise à jour le 14/08/2025 14:52
+# Version 41.0, mise à jour le 14/08/2025 18:55
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -363,6 +363,24 @@ EOF
 
 # Splashscreen pour KDE Plasma
 function activer_splashscreen_kde() {
+
+    # Vérifier et installer les dépendances Python pour KDE
+    echo "🔧 Installation des dépendances Python pour KDE..."
+    if command -v apt &>/dev/null; then
+        sudo apt install python3-pyqt5 python3-qtpy python3-dbus.mainloop.pyqt5 python3-xml -y
+    elif command -v pacman &>/dev/null; then
+        sudo pacman -S python-pyqt5 python-qtpy python-dbus-next --noconfirm
+    elif command -v dnf &>/dev/null; then
+        sudo dnf install python3-qt5 python3-qtpy dbus-python -y
+    else
+        echo "⚠️ Impossible d'installer les dépendances automatiquement"
+    fi
+
+    if [ ! -d "$REPO_DIR/splashscreens" ]; then
+        echo "❌ Dossier splashscreens introuvable. Exécutez d'abord l'option 1."
+        return 1
+    fi
+
     if [ ! -d "$REPO_DIR/splashscreens" ]; then
         echo "❌ Dossier splashscreens introuvable. Exécutez d'abord l'option 1."
         return 1
@@ -500,37 +518,36 @@ EOF
         
         # Appliquer le thème
         echo "⚙️ Application du thème..."
-        if command -v lookandfeeltool >/dev/null 2>&1; then
-            if lookandfeeltool -a "$THEME_NAME" 2>/dev/null; then
-                echo "✅ Thème appliqué avec lookandfeeltool"
-            else
-                echo "⚠️ Erreur avec lookandfeeltool, essai avec kwriteconfig5..."
-                if command -v kwriteconfig5 >/dev/null; then
-                    kwriteconfig5 --file ksplashrc --group KSplash --key Theme "$THEME_NAME"
-                fi
-            fi
-        elif command -v kwriteconfig5 >/dev/null; then
-            kwriteconfig5 --file ksplashrc --group KSplash --key Theme "$THEME_NAME"
-            echo "✅ Configuration écrite dans ksplashrc"
-        else
-            echo "⚠️ Impossible d'appliquer automatiquement le thème"
+        if command -v kbuildsycoca5 &>/dev/null; then
+            kbuildsycoca5 --noincremental  # Force la reconstruction du cache
         fi
-        
+
+        sleep 2
+
+        if command -v lookandfeeltool &>/dev/null; then
+            lookandfeeltool -a "$THEME_NAME" || {
+                echo "⚠️ Fallback sur la méthode kwriteconfig5..."
+                kwriteconfig5 --file ksplashrc --group KSplash --key Theme "$THEME_NAME"
+            }
+        else
+            kwriteconfig5 --file ksplashrc --group KSplash --key Theme "$THEME_NAME"
+        fi
+
+        # Forcer le rechargement de KDE
+        if command -v kwin_x11 &>/dev/null; then
+            kwin_x11 --replace &
+        elif command -v kwin_wayland &>/dev/null; then
+            kwin_wayland --replace &
+        fi
+
         echo "✅ Splashscreen '$selected_name' installé!"
-        echo "📁 Dossier: $THEME_DIR"
-        echo "🔄 Déconnectez-vous et reconnectez-vous pour voir les changements"
+        echo "🔄 Pour une prise en compte complète, il est recommandé de :"
+        echo "   1. Déconnecter complètement de votre session (Pas juste un reboot)"
+        echo "   2. Se reconnecter"
         echo ""
-        echo "📋 En cas de problème, configuration manuelle:"
-        echo "   1. Paramètres système → Apparence → Écran de démarrage"
-        echo "   2. Sélectionnez 'Bear Splash'"
-        echo "   3. Appliquez"
-        
-    else
-        echo "❌ KDE Plasma non détecté."
-        echo "🖥️ Environnement actuel: ${DESKTOP_SESSION:-inconnu}"
-        echo "💡 Cette fonctionnalité nécessite KDE Plasma"
-        return 1
-    fi
+        echo "💡 Si le splashscreen ne s'affiche toujours pas :"
+        echo "   - Vérifiez dans 'Paramètres système > Apparence > Écran de démarrage'"
+        echo "   - Essayez de sélectionner un autre thème puis reselectionnez 'Bear Splash'"
 }
 
 # Fonction pour tester Plymouth
