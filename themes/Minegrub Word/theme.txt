@@ -2,10 +2,10 @@
 title-text: ""
 desktop-image: "background.png"
 
-# CHARGEMENT DES POLICES
+# CHARGEMENT DES POLICES - Format CORRECT
 + loadfont {
-    font = "Minecraft30.pf2"
-    font = "Monocraft22.pf2"
+    font = "/boot/grub/fonts/Minecraft30.pf2"
+    font = "/boot/grub/fonts/Monocraft22.pf2"
 }
 
 # Terminal for Console and Options
