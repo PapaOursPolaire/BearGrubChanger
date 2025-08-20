@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 46.6, mise à jour le 14/08/2025 21:51
+# Version 48.8, mise à jour le 20/08/2025 à 19:07
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -148,7 +148,7 @@ function appliquer_police_systeme() {
     SYS_FONTS_NAMES=()
     
     # Parcourir les polices du repo LOCAL, du repo GIT et système
-    for font in "$LOCAL_DIR/fonts"/*.{ttf,otf} "$REPO_DIR/fonts"/*.{ttf,otf} /usr/share/fonts/*/*.{ttf,otf}; do
+    for font in "$LOCAL_DIR/fonts"/*.{ttf,otf} "$REPO_DIR/fonts"/*.{pf2,ttf,otf} /usr/share/fonts/*/*.{pf2,ttf,otf}; do
         [ -f "$font" ] || continue
         name=$(basename "$font")
         # Extraire le nom de famille de la police
