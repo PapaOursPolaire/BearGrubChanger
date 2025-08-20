@@ -1,7 +1,6 @@
 # Global
-
 title-text: ""
-desktop-image: "background.png" 
+desktop-image: "background.png"
 
 # Terminal for Console and Options
 terminal-border: "20"
@@ -12,15 +11,15 @@ terminal-height: "80%"
 terminal-box: "term_*.png"
 terminal-font: "Monocraft Regular 22"
 
-### MENU UNIFIÉ
+### MENU UNIFIÉ - Fusion des 3 blocs boot_menu
 + boot_menu {
-    left = 50%-410
-    top = 97
-    width = 809
-    height = 100%-289
+	left = 50%-410
+	top = 97
+	width = 809
+	height = 100%-289
 
-    item_font = "Minecraft Regular 30"
-    item_color = "#ffffff"
+	item_font = "Minecraft Regular 30"
+	item_color = "#ffffff"
     item_padding = 16
     item_height = 96
     item_spacing = 12
@@ -32,14 +31,13 @@ terminal-font: "Monocraft Regular 22"
     icon_height = 96
     item_icon_space = 2000
 
-    menu_pixmap_style = "menu_*.png"  # AJOUT DES GUILLEMETS
+    menu_pixmap_style = "menu_*.png"
 
-    scrollbar = true
+	scrollbar = true
     scrollbar_width = 12
     scrollbar_thumb = "scrollbar_thumb_*.png"
     scrollbar_frame = "scrollbar_frame_*.png"
 }
-
 
 # TIMEOUT
 + label {
@@ -70,5 +68,3 @@ terminal-font: "Monocraft Regular 22"
 	font = "Minecraft Regular 30"
 	color = "#2A2A2A"
 }
-
-
