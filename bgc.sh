@@ -147,8 +147,8 @@ function appliquer_police_systeme() {
     SYS_FONTS_KEYS=()
     SYS_FONTS_NAMES=()
     
-    # Parcourir les polices du repo et système
-    for font in "$LOCAL_DIR/fonts"/*.{ttf,otf} /usr/share/fonts/*/*.{ttf,otf}; do
+    # Parcourir les polices du repo LOCAL, du repo GIT et système
+    for font in "$LOCAL_DIR/fonts"/*.{ttf,otf} "$REPO_DIR/fonts"/*.{ttf,otf} /usr/share/fonts/*/*.{ttf,otf}; do
         [ -f "$font" ] || continue
         name=$(basename "$font")
         # Extraire le nom de famille de la police
@@ -163,6 +163,7 @@ function appliquer_police_systeme() {
 
     if [ $i -eq 1 ]; then
         echo "❌ Aucune police trouvée."
+        echo "💡 Astuce: Exécutez d'abord l'option 1 pour installer les polices"
         return 1
     fi
 
@@ -176,7 +177,7 @@ function appliquer_police_systeme() {
     
     echo "📋 Installation et configuration de la police système..."
     
-    # Installer la police dans le système
+    # Installe la police dans le système
     sudo mkdir -p /usr/share/fonts/custom
     sudo cp "$font_path" /usr/share/fonts/custom/
     sudo fc-cache -fv > /dev/null 2>&1
@@ -191,7 +192,7 @@ function appliquer_police_systeme() {
         kwriteconfig5 --file kdeglobals --group General --key toolBarFont "$font_family,11,-1,5,50,0,0,0,0,0"
         kwriteconfig5 --file kdeglobals --group WM --key activeFont "$font_family,11,-1,5,50,0,0,0,0,0"
         
-        # Forcer le rechargement de KDE
+        # Force le rechargement de KDE
         qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || true
         kquitapp5 plasmashell && kstart plasmashell &
         
