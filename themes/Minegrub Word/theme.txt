@@ -2,6 +2,12 @@
 title-text: ""
 desktop-image: "background.png"
 
+# CHARGEMENT DES POLICES
++ loadfont {
+    font = "Minecraft30.pf2"
+    font = "Monocraft22.pf2"
+}
+
 # Terminal for Console and Options
 terminal-border: "20"
 terminal-left: "10%"
@@ -9,16 +15,16 @@ terminal-top: "10%+23"
 terminal-width: "80%"
 terminal-height: "80%"
 terminal-box: "term_*.png"
-terminal-font: "Monocraft22.pf2"  # CORRIGÉ
+terminal-font: "Minecraft30 22"
 
-### MENU UNIFIÉ - Correction des conflits
+### MENU UNIFIÉ
 + boot_menu {
     left = 50%-410
     top = 97
     width = 809
     height = 100%-289
 
-    item_font = "Minecraft30.pf2"  # CORRIGÉ
+    item_font = "Minecraft30 30"
     item_color = "#ffffff"
     item_padding = 16
     item_height = 96
@@ -46,7 +52,7 @@ terminal-font: "Monocraft22.pf2"  # CORRIGÉ
     width = 100%    
     text = "Joining World in %d Seconds"
     align = "center"
-    font = "Minecraft30.pf2"  # CORRIGÉ
+    font = "Minecraft30 30"
     color = "#aaaaaa"
 }
 
@@ -59,6 +65,6 @@ terminal-font: "Monocraft22.pf2"  # CORRIGÉ
     width = 100%
     text = "Joining World in %d Seconds"
     align = "center"
-    font = "Minecraft30.pf2"  # CORRIGÉ
+    font = "Minecraft30 30"
     color = "#2A2A2A"
 }
