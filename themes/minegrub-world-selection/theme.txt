@@ -1,0 +1,33 @@
+# Global
+title-text: ""
+desktop-image: "background.png"
+
+# Terminal
+terminal-box: "term_*.png"
+terminal-font: "Minecraft30 16"
+
+# Menu principal
++ boot_menu {
+    left = 50%-410
+    top = 97
+    width = 809
+    height = 100%-289
+    item_font = "Minecraft30 16"
+    item_color = "#ffffff"
+    item_height = 96
+    item_spacing = 12
+    item_pixmap_style = "L2_item_*.png"
+    selected_item_pixmap_style = "L3_item_*.png"
+    scrollbar = true
+}
+
+# Labels timeout (optionnel)
++ label {
+    id = "__timeout__"
+    left = 0
+    top = 60
+    text = "Joining World in %d Seconds"
+    align = "center"
+    font = "Minecraft30 16"
+    color = "#aaaaaa"
+}
