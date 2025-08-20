@@ -9,31 +9,29 @@ terminal-top: "10%+23"
 terminal-width: "80%"
 terminal-height: "80%"
 terminal-box: "term_*.png"
-terminal-font: "Monocraft Regular 22"
+terminal-font: "Monocraft22.pf2"  # CORRIGÉ
 
-### MENU UNIFIÉ - Fusion des 3 blocs boot_menu
+### MENU UNIFIÉ - Correction des conflits
 + boot_menu {
-	left = 50%-410
-	top = 97
-	width = 809
-	height = 100%-289
+    left = 50%-410
+    top = 97
+    width = 809
+    height = 100%-289
 
-	item_font = "Minecraft Regular 30"
-	item_color = "#ffffff"
+    item_font = "Minecraft30.pf2"  # CORRIGÉ
+    item_color = "#ffffff"
     item_padding = 16
     item_height = 96
     item_spacing = 12
 
     item_pixmap_style = "L2_item_*.png"
     selected_item_pixmap_style = "L3_item_*.png"
-
     icon_width = 801
     icon_height = 96
     item_icon_space = 2000
 
     menu_pixmap_style = "menu_*.png"
-
-	scrollbar = true
+    scrollbar = true
     scrollbar_width = 12
     scrollbar_thumb = "scrollbar_thumb_*.png"
     scrollbar_frame = "scrollbar_frame_*.png"
@@ -41,30 +39,26 @@ terminal-font: "Monocraft Regular 22"
 
 # TIMEOUT
 + label {
-	id = "__timeout__"
-	
-	left = 0
-	top = 60
-	height = 30
-	width = 100%	
-	
-	text = "Joining World in %d Seconds"
-	align = "center"
-	font = "Minecraft Regular 30"
-	color = "#aaaaaa"
+    id = "__timeout__"
+    left = 0
+    top = 60
+    height = 30
+    width = 100%    
+    text = "Joining World in %d Seconds"
+    align = "center"
+    font = "Minecraft30.pf2"  # CORRIGÉ
+    color = "#aaaaaa"
 }
 
 # TIMEOUT SHADOW 
 + label {
-	id = "__timeout__"
-
-	left = 3
-	top = 63
-	height = 30
-	width = 100%
-
-	text = "Joining World in %d Seconds"
-	align = "center"
-	font = "Minecraft Regular 30"
-	color = "#2A2A2A"
+    id = "__timeout__"
+    left = 3
+    top = 63
+    height = 30
+    width = 100%
+    text = "Joining World in %d Seconds"
+    align = "center"
+    font = "Minecraft30.pf2"  # CORRIGÉ
+    color = "#2A2A2A"
 }
