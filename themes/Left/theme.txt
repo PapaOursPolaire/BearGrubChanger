@@ -31,14 +31,6 @@ terminal-border: "0"
   selected_item_pixmap_style = "select_*.png"
 }
 
-+ image {
-  top = 88%
-  left = 25%
-  width = 50%
-  height = 11%
-  file = "tips.png"
-}
-
 # Show a countdown message using the label component
 + progress_bar {
         id = "__timeout__"

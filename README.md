@@ -1,23 +1,25 @@
-🐻 BearGrubChanger (GBC)
+🐻 BearGrubChanger (BGC)
 
 BearGrubChanger est un utilitaire shell interactif permettant de personnaliser facilement le menu de démarrage GRUB sur les distributions Linux (Kubuntu, Ubuntu, Debian, Arch, etc.).
 Conçu pour les passionnés de personnalisation et les mateurs des distributions Linux, GBC simplifie le processus de changement de thème GRUB en quelques secondes, sans manipulation manuelle complexe.
 
 🎯 Objectifs principaux :
 
-💡 Changer le thème GRUB parmi une sélection de thèmes esthétiques (ex: Fallout, Arcade, CRT, etc.)
+💡 Change le thème GRUB parmi une sélection de thèmes esthétiques (ex: Fallout, Arcade, CRT, etc.)
 
-🎨 Automatiser les modifications des fichiers .conf concernés pour empêcher les noobs à rager et revenir sur Windows
+🎨 Automatise les modifications des fichiers .conf concernés pour empêcher les noobs à rager et revenir sur Windows
 
-📥 Télécharger automatiquement les fichiers nécessaires (`theme.txt`, `background.png`, `icons/`)
+📥 Télécharge automatiquement les fichiers nécessaires (`theme.txt`, `background.png`, `icons/`)
 
-🧩 Personnaliser les icônes indépendamment du thème (pack d'icônes interchangeable)
+🧩 Personnalise les icônes indépendamment du thème (pack d'icônes interchangeable)
 
-🔧 Appliquer automatiquement les modifications dans GRUB (`/etc/default/grub` + `update-grub`)
+🔧 Applique automatiquement les modifications dans GRUB (`/etc/default/grub` + `update-grub`)
 
 🧱 Organisation claire des fichiers via des dossiers `themes/` et `icons/` dans le dépôt GitHub
 
-D'autres thèmes sont à venir, , n'hésitez pas à me contacter via le forum du projet ou via mon adresse électronique professionnelle : papaoursgamer@gmail.com
+D'autres thèmes, SDDM, plymouth, polices d'écritures, packs d'icônes sont à venir mais n'hésitez pas à me contacter si vous voulez me proposer du contenu en lien avec BearGrubChanger via le forum du projet ou via mon adresse électronique professionnelle : 
+
+papaoursgamer@gmail.com
 
 Coordonnées complémentaires :
 

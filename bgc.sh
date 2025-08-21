@@ -895,198 +895,13 @@ Rectangle {
 }
 EOF
 
-    # Reconstruire le cache de KDE
-    echo "🔄 Reconstruction du cache KDE..."
-    kbuildsycoca5 --noincremental >/dev/null 2>&1
-
-    # Configuration du fond d'écran via plasma-apply-wallpaperimage si disponible
-    echo "⚙️ Tentative d'application automatique..."
-    
-    # Essayer différentes méthodes d'application
-    if command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then
-        # Méthode 1: plasma-apply-wallpaperimage (ne fonctionne que pour les images)
-        echo "📝 Utilisation de plasma-apply-wallpaperimage..."
-    fi
-    
-    # Méthode 2: Configuration directe via dbus
-    if command -v qdbus >/dev/null 2>&1; then
-        echo "📝 Configuration via DBus..."
-        # Essayer de configurer le bureau principal
-        qdbus org.kde.plasmashell /PlasmaShell evaluateScript "
-            var allDesktops = desktops();
-            for (i = 0; i < allDesktops.length; i++) {
-                d = allDesktops[i];
-                d.wallpaperPlugin = 'bear_video';
-                d.currentConfigGroup = Array('Wallpaper', 'bear_video', 'General');
-            }
-        " 2>/dev/null || echo "⚠️ Configuration DBus échouée"
-    fi
-    
-    # Redémarrer plasmashell pour appliquer les changements
-    echo "🔄 Redémarrage de Plasmashell..."
-    killall plasmashell 2>/dev/null
-    sleep 3
-    kstart plasmashell >/dev/null 2>&1 &
-    
-    echo -e "\n✅ FOND D'ÉCRAN VIDÉO CONFIGURÉ !"
-    echo "🎬 Vidéo: $video_name"
-    echo ""
-    echo "📌 Si le fond d'écran ne s'applique pas automatiquement :"
-    echo "1. Clic droit sur le bureau → 'Configurer le bureau et le fond d'écran'"
-    echo "2. Type de fond d'écran → 'Bear Video Wallpaper'"
-    echo "3. Appliquer"
-    echo ""
-    echo "💡 Le fond d'écran vidéo sera visible dans 5-10 secondes..."
-    echo "🖱️ Clic sur le fond d'écran pour mettre en pause/reprendre"
-}
-
-# Thèmes d'icônes système complets (dossier icons-themes du repo)
-function appliquer_theme_icones_systeme() {
-    echo -e "\n🎨 THÈMES D'ICÔNES SYSTÈME COMPLETS"
-    
-    # Vérifier que le dossier icons-themes existe
-    ICONS_THEMES_DIR="$REPO_DIR/icons-themes"
-    if [ ! -d "$ICONS_THEMES_DIR" ]; then
-        echo "❌ Dossier icons-themes introuvable dans le dépôt"
-        echo "💡 Vérifiez que le dépôt contient bien le dossier icons-themes"
-        return 1
-    fi
-    
-    echo "📦 Thèmes d'icônes disponibles :"
-    local i=1
-    declare -a ICON_THEMES_KEYS
-    declare -a ICON_THEMES_PATHS
-    
-    # Parcourir tous les fichiers d'archive dans icons-themes
-    while IFS= read -r -d $'\0' archive; do
-        filename=$(basename "$archive")
-        themename="${filename%.*}"  # Retirer l'extension
-        themename="${themename%.tar}"  # Retirer .tar supplémentaire si présent
-        
-        echo "$i. $themename"
-        ICON_THEMES_KEYS[$i]="$themename"
-        ICON_THEMES_PATHS[$i]="$archive"
-        ((i++))
-    done < <(find "$ICONS_THEMES_DIR" -maxdepth 1 -type f \( \
-        -iname "*.tar.xz" -o \
-        -iname "*.tar.gz" -o \
-        -iname "*.tgz" -o \
-        -iname "*.tar.bz2" -o \
-        -iname "*.tbz" -o \
-        -iname "*.zip" -o \
-        -iname "*.7z" \
-    \) -print0)
-    
-    if [ $i -eq 1 ]; then
-        echo "❌ Aucun thème d'icônes trouvé dans $ICONS_THEMES_DIR"
-        echo "📁 Formats supportés: .tar.xz, .tar.gz, .tgz, .tar.bz2, .tbz, .zip, .7z"
-        return 1
-    fi
-    
-    read -p "🎯 Choisissez un thème d'icônes [1-$((i-1))]: " choice
-    if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice >= i)); then
-        echo "❌ Choix invalide."
-        return 1
-    fi
-    
-    selected_theme="${ICON_THEMES_KEYS[$choice]}"
-    selected_archive="${ICON_THEMES_PATHS[$choice]}"
-    archive_ext="${selected_archive##*.}"
-    
-    echo "🛠️ Installation du thème $selected_theme..."
-    
-    # Dossier de destination pour les icônes système
-    ICONS_DEST_DIR="$HOME/.local/share/icons"
-    sudo_ICONS_DEST_DIR="/usr/share/icons"
-    
-    # Créer le dossier de destination
-    mkdir -p "$ICONS_DEST_DIR"
-    
-    # Extraire l'archive selon son format
-    echo "📦 Extraction de l'archive..."
-    case "$archive_ext" in
-        xz|gz|bz2|tgz|tbz)
-            # Archives tar avec différentes compressions
-            tar_flags=""
-            case "$archive_ext" in
-                xz) tar_flags="J" ;;
-                gz|tgz) tar_flags="z" ;;
-                bz2|tbz) tar_flags="j" ;;
-            esac
-            tar -x${tar_flags}f "$selected_archive" -C "$ICONS_DEST_DIR"
-            ;;
-        zip)
-            unzip -q "$selected_archive" -d "$ICONS_DEST_DIR"
-            ;;
-        7z)
-            if command -v 7z >/dev/null; then
-                7z x "$selected_archive" -o"$ICONS_DEST_DIR" -y
-            else
-                echo "❌ 7z n'est pas installé. Installation..."
-                sudo apt install p7zip-full -y || sudo pacman -S p7zip --noconfirm || sudo dnf install p7zip -y
-                7z x "$selected_archive" -o"$ICONS_DEST_DIR" -y
-            fi
-            ;;
-        *)
-            echo "❌ Format non supporté: $archive_ext"
-            return 1
-            ;;
-    esac
-    
-    # Trouver le dossier extrait (peut avoir un nom différent)
-    extracted_dir=""
-    for dir in "$ICONS_DEST_DIR"/*; do
-        if [ -d "$dir" ] && [ -f "$dir/index.theme" ]; then
-            extracted_dir="$dir"
-            theme_name=$(basename "$dir")
-            break
-        fi
-    done
-    
-    if [ -z "$extracted_dir" ]; then
-        echo "❌ Impossible de trouver le dossier du thème après extraction"
-        echo "🔍 Contenu extrait:"
-        ls -la "$ICONS_DEST_DIR"
-        return 1
-    fi
-    
-    echo "✅ Thème extrait: $theme_name"
-    
-    # Application automatique selon l'environnement de bureau
-    echo "⚙️ Application du thème d'icônes..."
-    
-    if pgrep -x "plasmashell" >/dev/null 2>&1; then
-        # KDE Plasma
-        kwriteconfig5 --file kdeglobals --group Icons --key Theme "$theme_name"
-        echo "✅ Thème d'icônes appliqué pour KDE Plasma: $theme_name"
-        
-    elif pgrep -x "gnome-shell" >/dev/null 2>&1; then
-        # GNOME
-        gsettings set org.gnome.desktop.interface icon-theme "$theme_name"
-        echo "✅ Thème d'icônes appliqué pour GNOME: $theme_name"
-        
-    elif pgrep -x "xfce4-panel" >/dev/null 2>&1; then
-        # XFCE
-        xfconf-query -c xsettings -p /Net/IconThemeName -s "$theme_name"
-        echo "✅ Thème d'icônes appliqué pour XFCE: $theme_name"
-        
+    # Activation du look & feel
+    if command -v plasma-apply-lookandfeel &>/dev/null; then
+        plasma-apply-lookandfeel org.kde.bear-splash
+        echo "✅ Splashscreen KDE appliqué."
     else
-        echo "⚠️ Environnement de bureau non reconnu"
-        echo "💡 Thème installé dans: $extracted_dir"
-        echo "📋 Sélectionnez-le manuellement dans les paramètres de votre bureau"
+        echo "⚠️ Impossible d'appliquer automatiquement le splashscreen. Utilise les paramètres KDE > Démarrage."
     fi
-    
-    # Actualiser le cache d'icônes
-    echo "🔄 Actualisation du cache d'icônes..."
-    gtk-update-icon-cache -f -t "$extracted_dir" 2>/dev/null || true
-    
-    # Forcer le rechargement dans KDE
-    if pgrep -x "plasmashell" >/dev/null 2>&1; then
-        kquitapp5 plasmashell && kstart plasmashell &
-    fi
-    
-    echo "🎉 Thème d'icônes '$theme_name' installé avec succès!"
-    echo "🔄 Les changements seront visibles après redémarrage de la session"
 }
 
 # Interface utilisateur
@@ -1119,15 +934,10 @@ function menu_principal() {
                 ;;
             2) appliquer_theme ;;
             3) appliquer_police ;;
-            4) appliquer_police_systeme ;;
-            5) remplacer_icones ;;
-            6) choisir_theme_plymouth ;;
-            7) activer_splashscreen_kde ;;
-            8) choisir_theme_sddm ;;
-            9) ajuster_delai_grub ;;
-            10) activer_fond_anime_kde ;;
-            11) appliquer_theme_icones_systeme ;;
-            0) echo "👋 Vzy casse-toi d'là "; exit 0 ;;
+            4) remplacer_icones ;;
+            5) choisir_theme_plymouth ;;
+            6) activer_splashscreen_kde ;;
+            0) echo "👋 Vzy casse-toi d'là"; exit 0 ;;
             *) echo "❌ Option invalide." ;;
         esac
     done
