@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 48.8, mise à jour le 20/08/2025 à 19:07
+# Version 48.8, mise à jour le 21/08/2025 à 21:49
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
