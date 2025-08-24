@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 48.8, mise à jour le 21/08/2025 à 21:49
+# Version 49.8, mise à jour le 24/08/2025 à 17:29
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -19,19 +19,19 @@ SDDM_THEMES_DIR="$REPO_DIR/sddm"
 # Menu GRUB
 function verifier_et_installer_grub() {
     if ! command -v grub-install &>/dev/null; then
-        echo "🔧 GRUB n'est pas installé. Installation..."
+        echo "GRUB n'est pas installé. Installation..."
         sudo apt install grub2-common grub-pc -y || \
         sudo pacman -S grub --noconfirm || \
         sudo dnf install grub2 -y || {
-            echo "❌ Échec de l'installation de GRUB."; exit 1;
+            echo "Échec de l'installation de GRUB."; exit 1;
         }
     else
-        echo "✅ GRUB est déjà installé."
+        echo "GRUB est déjà installé."
     fi
 }
 
 function forcer_affichage_menu_grub() {
-    echo "🛠️ Forçage affichage menu GRUB..."
+    echo "Forçage affichage menu GRUB..."
     sudo sed -i '/^GRUB_TIMEOUT_STYLE=/d' "$GRUB_FILE"
     sudo sed -i '/^GRUB_TIMEOUT=/d' "$GRUB_FILE"
     sudo sed -i '/^GRUB_HIDDEN_TIMEOUT=/d' "$GRUB_FILE"
@@ -46,19 +46,19 @@ EOF
 function cloner_depot() {
     mkdir -p "$LOCAL_DIR"
     if [ ! -d "$REPO_DIR" ]; then
-        echo "📥 Clonage du dépôt BearGrubChanger..."
+        echo "Clonage du dépôt BearGrubChanger..."
         git clone --depth 1 --branch "$GIT_BRANCH" "$GIT_REPO" "$REPO_DIR" || {
-            echo "❌ Clonage échoué."; exit 1;
+            echo "Clonage échoué."; exit 1;
         }
     else
-        echo "🔄 Mise à jour du dépôt..."
+        echo "Mise à jour du dépôt..."
         git -C "$REPO_DIR" pull
     fi
 }
 
 # Installation des fichiers
 function installer_tous_les_assets() {
-    echo "📂 Copie des thèmes, icônes et polices..."
+    echo "Copie des thèmes, icônes et polices..."
     sudo mkdir -p "$THEMES_DIR"
     sudo cp -r "$REPO_DIR/themes/"* "$THEMES_DIR/"
     mkdir -p "$LOCAL_DIR/icons"
@@ -74,7 +74,7 @@ function installer_tous_les_assets() {
     sudo mkdir -p "$SDDM_DIR"
     sudo cp -r "$REPO_DIR/sddm/"* "$SDDM_DIR/"
     
-    echo "✅ Fichiers installés."
+    echo "Fichiers installés."
 }
 
 # Thème GRUB
@@ -89,17 +89,17 @@ function appliquer_theme() {
         ((i++))
     done
 
-    read -p "🎨 Choix du thème : " choice
+    read -p "Choix du thème : " choice
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice >= i)); then
-        echo "❌ Choix invalide."; exit 1
+        echo "Choix invalide."; exit 1
     fi
 
     selected="${THEMES_KEYS[$choice]}"
-    echo "🖌️ Application du thème $selected..."
+    echo "Application du thème $selected..."
     sudo sed -i '/^GRUB_THEME=/d' "$GRUB_FILE"
     echo "GRUB_THEME=\"$THEMES_DIR/$selected/theme.txt\"" | sudo tee -a "$GRUB_FILE"
     sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg
-    echo "✅ Thème $selected appliqué."
+    echo "Thème $selected appliqué."
 }
 
 # Configration de la police GRUB
@@ -116,31 +116,31 @@ function appliquer_police() {
     done
 
     if [ $i -eq 1 ]; then
-        echo "❌ Aucune police trouvée dans $LOCAL_DIR/fonts/"
+        echo "Aucune police trouvée dans $LOCAL_DIR/fonts/"
         return 1
     fi
 
-    read -p "✏️ Choix de la police GRUB : " choice
+    read -p "Choix de la police GRUB : " choice
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice >= i)); then
-        echo "❌ Choix invalide."; return 1
+        echo "Choix invalide."; return 1
     fi
 
     selected="${FONTS_KEYS[$choice]}"
     current_theme=$(grep GRUB_THEME "$GRUB_FILE" | cut -d'=' -f2 | tr -d '"')
 
     if [ ! -f "$current_theme" ]; then
-        echo "❌ Thème actif introuvable."; return 1
+        echo "Thème actif introuvable."; return 1
     fi
 
     sudo sed -i '/^terminal-font:/d' "$current_theme"
     echo "terminal-font: \"$LOCAL_DIR/fonts/$selected\"" | sudo tee -a "$current_theme"
     sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg
-    echo "✅ Police GRUB $selected appliquée."
+    echo "Police GRUB $selected appliquée."
 }
 
 # Police système avec application automatique
 function appliquer_police_systeme() {
-    echo -e "\n⚙️ Configuration automatique de la police système"
+    echo -e "\nConfiguration automatique de la police système"
     
     echo "Polices système disponibles:"
     local i=1
@@ -162,20 +162,20 @@ function appliquer_police_systeme() {
     done
 
     if [ $i -eq 1 ]; then
-        echo "❌ Aucune police trouvée."
-        echo "💡 Astuce: Exécutez d'abord l'option 1 pour installer les polices"
+        echo "Aucune police trouvée."
+        echo "Astuce: Exécutez d'abord l'option 1 pour installer les polices"
         return 1
     fi
 
-    read -p "✏️ Choix de la police système : " choice
+    read -p "Choix de la police système : " choice
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice >= i)); then
-        echo "❌ Choix invalide."; return 1
+        echo "Choix invalide."; return 1
     fi
 
     local font_path="${SYS_FONTS_KEYS[$choice]}"
     local font_family="${SYS_FONTS_NAMES[$choice]}"
     
-    echo "📋 Installation et configuration de la police système..."
+    echo "Installation et configuration de la police système..."
     
     # Installe la police dans le système
     sudo mkdir -p /usr/share/fonts/custom
@@ -185,7 +185,7 @@ function appliquer_police_systeme() {
     # Application automatique selon l'environnement de bureau
     if pgrep -x "plasmashell" >/dev/null 2>&1; then
         # KDE Plasma
-        echo "🔧 Configuration automatique pour KDE Plasma..."
+        echo "Configuration automatique pour KDE Plasma..."
         kwriteconfig5 --file kdeglobals --group General --key font "$font_family,11,-1,5,50,0,0,0,0,0"
         kwriteconfig5 --file kdeglobals --group General --key menuFont "$font_family,11,-1,5,50,0,0,0,0,0"
         kwriteconfig5 --file kdeglobals --group General --key smallestReadableFont "$font_family,9,-1,5,50,0,0,0,0,0"
@@ -198,7 +198,7 @@ function appliquer_police_systeme() {
         
     elif pgrep -x "gnome-shell" >/dev/null 2>&1; then
         # GNOME
-        echo "🔧 Configuration automatique pour GNOME..."
+        echo "Configuration automatique pour GNOME..."
         gsettings set org.gnome.desktop.interface font-name "$font_family 11"
         gsettings set org.gnome.desktop.interface document-font-name "$font_family 11"
         gsettings set org.gnome.desktop.wm.preferences titlebar-font "$font_family Bold 11"
@@ -206,17 +206,17 @@ function appliquer_police_systeme() {
         
     elif pgrep -x "xfce4-panel" >/dev/null 2>&1; then
         # XFCE
-        echo "🔧 Configuration automatique pour XFCE..."
+        echo "Configuration automatique pour XFCE..."
         xfconf-query -c xsettings -p /Gtk/FontName -s "$font_family 11"
         xfconf-query -c xfwm4 -p /general/title_font -s "$font_family Bold 11"
         
     else
-        echo "⚠️ Environnement de bureau non reconnu."
-        echo "💡 Police installée dans le système. Sélectionnez-la manuellement dans les paramètres."
+        echo "Environnement de bureau non reconnu."
+        echo "Police installée dans le système. Sélectionnez-la manuellement dans les paramètres."
     fi
 
-    echo "✅ Police système '$font_family' configurée automatiquement."
-    echo "🔄 Les changements seront visibles après redémarrage de la session."
+    echo "Police système '$font_family' configurée automatiquement."
+    echo "Les changements seront visibles après redémarrage de la session."
 }
 
 # Icones GRUB
@@ -231,9 +231,9 @@ function remplacer_icones() {
         ((i++))
     done
 
-    read -p "🖼️ Choix du pack : " choice
+    read -p "Choix du pack : " choice
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice >= i)); then
-        echo "❌ Choix invalide."; exit 1
+        echo "Choix invalide."; exit 1
     fi
 
     selected="${ICONS_KEYS[$choice]}"
@@ -246,12 +246,12 @@ function remplacer_icones() {
 
     sudo cp -r "$LOCAL_DIR/icons/$selected/"* "$theme_path/icons/"
     sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg
-    echo "✅ Icônes $selected appliquées."
+    echo "Icônes $selected appliquées."
 }
 
 # Plymouth
 function installer_plymouth() {
-    echo "📦 Installation complète de Plymouth..."
+    echo "Installation complète de Plymouth..."
     
     # Installation selon la distribution
     if command -v apt >/dev/null; then
@@ -262,28 +262,28 @@ function installer_plymouth() {
     elif command -v dnf >/dev/null; then
         sudo dnf install plymouth plymouth-scripts plymouth-plugin-* -y
     else
-        echo "❌ Distribution non supportée pour l'installation automatique"
+        echo "Distribution non supportée pour l'installation automatique"
         return 1
     fi
     
     # Activer Plymouth dans GRUB
-    echo "⚙️ Configuration de GRUB pour Plymouth..."
+    echo "Configuration de GRUB pour Plymouth..."
     sudo sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/c\GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"' "$GRUB_FILE"
     sudo update-grub 2>/dev/null || sudo grub-mkconfig -o /boot/grub/grub.cfg
     
-    echo "✅ Plymouth installé et configuré"
+    echo "Plymouth installé et configuré"
 }
 
 function choisir_theme_plymouth() {
     # Vérifier que Plymouth est installé
     if ! command -v plymouth >/dev/null; then
-        echo "❌ Plymouth n'est pas installé. Utilisez l'option pour l'installer."
+        echo "Plymouth n'est pas installé. Utilisez l'option pour l'installer."
         return 1
     fi
     
     # Vérifier d'abord si les thèmes ont été clonés
     if [ ! -d "$REPO_DIR/plymouth" ]; then
-        echo "⚠️ Dossier Plymouth non trouvé. Exécutez d'abord l'option 1."
+        echo "Dossier Plymouth non trouvé. Exécutez d'abord l'option 1."
         return 1
     fi
 
@@ -305,20 +305,20 @@ function choisir_theme_plymouth() {
     done
 
     if [ $i -eq 1 ]; then
-        echo "❌ Aucun thème Plymouth valide trouvé dans $REPO_DIR/plymouth"
-        echo "🔍 Vérification du contenu du dossier..."
+        echo "Aucun thème Plymouth valide trouvé dans $REPO_DIR/plymouth"
+        echo "Vérification du contenu du dossier..."
         ls -la "$REPO_DIR/plymouth" 2>/dev/null || echo "Le dossier n'existe pas"
         return 1
     fi
 
-    read -p "🔥 Choix du thème Plymouth : " plym_choice
+    read -p "Choix du thème Plymouth : " plym_choice
     if ! [[ "$plym_choice" =~ ^[0-9]+$ ]] || ((plym_choice < 1 || plym_choice >= i)); then
-        echo "❌ Choix invalide."
+        echo "Choix invalide."
         return 1
     fi
 
     selected="${PLYM_KEYS[$plym_choice]}"
-    echo "⚙️ Activation du thème $selected..."
+    echo "Activation du thème $selected..."
     
     # Copier tout le dossier du thème
     sudo cp -r "$REPO_DIR/plymouth/$selected" "$PLYMOUTH_DIR/"
@@ -330,7 +330,7 @@ function choisir_theme_plymouth() {
             sudo plymouth-set-default-theme "$selected"
         else
             # Configuration manuelle
-            echo "⚙️ Configuration manuelle de Plymouth..."
+            echo "Configuration manuelle de Plymouth..."
             
             # Créer/modifier le fichier de configuration Plymouth
             sudo mkdir -p /etc/plymouth
@@ -345,7 +345,7 @@ function choisir_theme_plymouth() {
         fi
         
         # Reconstruire l'initramfs
-        echo "🔄 Reconstruction de l'initramfs..."
+        echo "Reconstruction de l'initramfs..."
         if command -v update-initramfs >/dev/null; then
             sudo update-initramfs -u -k all
         elif command -v dracut >/dev/null; then
@@ -354,19 +354,19 @@ function choisir_theme_plymouth() {
             sudo mkinitcpio -P
         fi
         
-        echo "✅ Plymouth configuré avec le thème $selected"
-        echo "🔄 Redémarrez pour voir les changements"
-        echo "💡 Si Plymouth ne s'affiche pas, vérifiez que 'quiet splash' est dans GRUB_CMDLINE_LINUX_DEFAULT"
+        echo "Plymouth configuré avec le thème $selected"
+        echo "Redémarrez pour voir les changements"
+        echo "Si Plymouth ne s'affiche pas, vérifiez que 'quiet splash' est dans GRUB_CMDLINE_LINUX_DEFAULT"
     else
-        echo "❌ Fichier $selected.plymouth introuvable dans $PLYMOUTH_DIR/$selected/"
-        echo "🔍 Contenu du dossier :"
+        echo "Fichier $selected.plymouth introuvable dans $PLYMOUTH_DIR/$selected/"
+        echo "Contenu du dossier :"
         ls -la "$PLYMOUTH_DIR/$selected/" 2>/dev/null
     fi
 }
 
 # SDDM
 function installer_sddm() {
-    echo "📦 Installation de SDDM..."
+    echo "Installation de SDDM..."
     sudo apt install sddm -y || sudo pacman -S sddm --noconfirm || sudo dnf install sddm -y
     sudo systemctl enable sddm
 }
@@ -384,13 +384,13 @@ function choisir_theme_sddm() {
         fi
     done
 
-    read -p "🖥️ Choix du thème SDDM : " sddm_choice
+    read -p "Choix du thème SDDM : " sddm_choice
     if ! [[ "$sddm_choice" =~ ^[0-9]+$ ]] || ((sddm_choice < 1 || sddm_choice >= i)); then
-        echo "❌ Choix invalide."; exit 1
+        echo "Choix invalide."; exit 1
     fi
 
     selected="${SDDM_KEYS[$sddm_choice]}"
-    echo "⚙️ Activation du thème $selected..."
+    echo "Activation du thème $selected..."
     
     # Créer le dossier de configuration si inexistant
     sudo mkdir -p "$SDDM_CONFIG_DIR"
@@ -401,14 +401,14 @@ function choisir_theme_sddm() {
 Current=$selected
 EOF
 
-    echo "✅ Thème SDDM $selected appliqué."
-    echo "🔄 Redémarrez SDDM pour voir les changements: sudo systemctl restart sddm"
+    echo "Thème SDDM $selected appliqué."
+    echo "Redémarrez SDDM pour voir les changements: sudo systemctl restart sddm"
 }
 
 # Splashscreen KDE avec support GIF optimisé
 function activer_splashscreen_kde() {
     # Vérifier et installer les dépendances Python pour KDE
-    echo "🔧 Installation des dépendances Python pour KDE..."
+    echo "Installation des dépendances Python pour KDE..."
     if command -v apt &>/dev/null; then
         sudo apt install python3-pyqt5 python3-qtpy python3-dbus.mainloop.pyqt5 python3-xml -y
     elif command -v pacman &>/dev/null; then
@@ -416,11 +416,11 @@ function activer_splashscreen_kde() {
     elif command -v dnf &>/dev/null; then
         sudo dnf install python3-qt5 python3-qtpy dbus-python -y
     else
-        echo "⚠️ Impossible d'installer les dépendances automatiquement"
+        echo "Impossible d'installer les dépendances automatiquement"
     fi
 
     if [ ! -d "$REPO_DIR/splashscreens" ]; then
-        echo "❌ Dossier splashscreens introuvable. Exécutez d'abord l'option 1."
+        echo "Dossier splashscreens introuvable. Exécutez d'abord l'option 1."
         return 1
     fi
 
@@ -431,20 +431,20 @@ function activer_splashscreen_kde() {
     done < <(find "$REPO_DIR/splashscreens" -maxdepth 1 -type f \( -iname "*.gif" -o -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) -print0)
 
     if [ ${#splash_files[@]} -eq 0 ]; then
-        echo "❌ Aucun splashscreen valide trouvé."
-        echo "🔍 Contenu du dossier :"
+        echo "Aucun splashscreen valide trouvé."
+        echo "Contenu du dossier :"
         ls -la "$REPO_DIR/splashscreens" 2>/dev/null
         return 1
     fi
 
-    echo -e "\n🎞️ Splashscreens disponibles :"
+    echo -e "\nSplashscreens disponibles :"
     for i in "${!splash_files[@]}"; do
         echo "$((i+1)). $(basename "${splash_files[$i]}")"
     done
 
-    read -p "💫 Sélectionnez un splashscreen [1-${#splash_files[@]}] : " choice
+    read -p "Sélectionnez un splashscreen [1-${#splash_files[@]}] : " choice
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice > ${#splash_files[@]})); then
-        echo "❌ Sélection invalide."
+        echo "Sélection invalide."
         return 1
     fi
 
@@ -452,7 +452,7 @@ function activer_splashscreen_kde() {
     selected_name=$(basename "$selected")
     file_ext="${selected_name##*.}"
     
-    echo "🖌️ Application de $selected_name..."
+    echo "Application de $selected_name..."
     
     # Identifier la version de KDE
     if [ -n "$KDE_SESSION_VERSION" ] || [ "$DESKTOP_SESSION" = "plasma" ] || pgrep -x "plasmashell" >/dev/null 2>&1; then
@@ -613,7 +613,7 @@ EOF
         fi
 
         # Application automatique du thème
-        echo "⚙️ Application automatique du thème..."
+        echo "Application automatique du thème..."
         if command -v kbuildsycoca5 &>/dev/null; then
             kbuildsycoca5 --noincremental
         fi
@@ -634,22 +634,22 @@ EOF
         sleep 1
         kstart plasmashell &
 
-        echo "✅ Splashscreen '$selected_name' installé et activé automatiquement!"
-        echo "🔄 Déconnectez-vous et reconnectez-vous pour voir le splashscreen au démarrage"
+        echo "Splashscreen '$selected_name' installé et activé automatiquement!"
+        echo "Déconnectez-vous et reconnectez-vous pour voir le splashscreen au démarrage"
         
     else
-        echo "❌ KDE Plasma n'est pas détecté"
+        echo "KDE Plasma n'est pas détecté"
         return 1
     fi
 }
 
 function ajuster_delai_grub() {
     current_timeout=$(grep "GRUB_TIMEOUT=" "$GRUB_FILE" | cut -d'=' -f2)
-    echo -e "\n⏱️ Délai actuel pour la sélection automatique : ${current_timeout:-15} secondes"
+    echo -e "\n Délai actuel pour la sélection automatique : ${current_timeout:-15} secondes"
     read -p "Nouveau délai (en secondes, 0 pour désactiver) : " new_timeout
 
     if ! [[ "$new_timeout" =~ ^[0-9]+$ ]]; then
-        echo "❌ Valeur invalide. Doit être un nombre entier."
+        echo "Valeur invalide. Doit être un nombre entier."
         return 1
     fi
 
@@ -657,7 +657,7 @@ function ajuster_delai_grub() {
     echo "GRUB_TIMEOUT=$new_timeout" | sudo tee -a "$GRUB_FILE"
     sudo update-grub
 
-    echo "✅ Délai mis à jour : $new_timeout secondes"
+    echo "Délai mis à jour : $new_timeout secondes"
     echo "Le système appliquera les changements au prochain démarrage."
 }
 
@@ -665,11 +665,11 @@ function ajuster_delai_grub() {
 function activer_fond_anime_kde() {
     # Vérifier que KDE Plasma est bien détecté
     if ! pgrep -x "plasmashell" >/dev/null; then
-        echo "❌ KDE Plasma n'est pas détecté comme environnement actuel"
+        echo "KDE Plasma n'est pas détecté comme environnement actuel"
         return 1
     fi
 
-    echo -e "\n🎬 ACTIVATION DE FOND D'ÉCRAN VIDÉO POUR KDE PLASMA"
+    echo -e "\nACTIVATION DE FOND D'ÉCRAN VIDÉO POUR KDE PLASMA"
     
     # Définir les dossiers vidéos possibles
     VIDEOS_DIRS=("$HOME/Videos" "$HOME/Vidéos" "$HOME/Downloads" "$HOME/Téléchargements" "$HOME")
@@ -683,7 +683,7 @@ function activer_fond_anime_kde() {
         fi
     done
     
-    echo "📂 Dossiers vidéos détectés:"
+    echo "Dossiers vidéos détectés:"
     echo "   $VIDEOS_DIR"
     
     # Méthode 1: Lister les vidéos disponibles directement
@@ -696,20 +696,20 @@ function activer_fond_anime_kde() {
     done < <(find "${VIDEOS_DIRS[@]}" "$HOME/Downloads" "$HOME/Téléchargements" "$HOME/Desktop" "$HOME/Bureau" 2>/dev/null -maxdepth 2 -type f \( -iname "*.mp4" -o -iname "*.webm" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv" \) -print0 2>/dev/null | head -20)
     
     if [ ${#video_files[@]} -gt 0 ]; then
-        echo -e "\n🎥 VIDÉOS DÉTECTÉES :"
+        echo -e "\n VIDÉOS DÉTECTÉES :"
         for i in "${!video_files[@]}"; do
             echo "$((i+1)). $(basename "${video_files[$i]}")"
-            echo "    📁 ${video_files[$i]}"
+            echo " ${video_files[$i]}"
         done
-        echo "$((${#video_files[@]}+1)). 📝 Saisir un chemin manuellement"
+        echo "$((${#video_files[@]}+1)). Saisir un chemin manuellement"
         
-        read -p "🎯 Choisissez une vidéo [1-$((${#video_files[@]}+1))]: " choice
+        read -p "Choisissez une vidéo [1-$((${#video_files[@]}+1))]: " choice
         
         if [[ "$choice" =~ ^[0-9]+$ ]] && ((choice >= 1 && choice <= ${#video_files[@]})); then
             video_path="${video_files[$((choice-1))]}"
         elif [ "$choice" = "$((${#video_files[@]}+1))" ]; then
             # Ouvrir l'explorateur en arrière-plan (sans attendre)
-            echo "📂 Ouverture de l'explorateur..."
+            echo "Ouverture de l'explorateur..."
             if command -v dolphin >/dev/null; then
                 dolphin "$VIDEOS_DIR" >/dev/null 2>&1 &
             elif command -v nautilus >/dev/null; then
@@ -720,15 +720,15 @@ function activer_fond_anime_kde() {
                 xdg-open "$VIDEOS_DIR" >/dev/null 2>&1 &
             fi
             sleep 2
-            echo "🎥 Saisissez le chemin complet du fichier vidéo :"
-            read -p "📂 Chemin vers la vidéo : " video_path
+            echo "Saisissez le chemin complet du fichier vidéo :"
+            read -p "Chemin vers la vidéo : " video_path
         else
-            echo "❌ Choix invalide"
+            echo "Choix invalide"
             return 1
         fi
     else
-        echo "⚠️ Aucune vidéo détectée automatiquement"
-        echo "📂 Ouverture de l'explorateur pour sélection manuelle..."
+        echo "Aucune vidéo détectée automatiquement"
+        echo "Ouverture de l'explorateur pour sélection manuelle..."
         
         # Ouvrir l'explorateur en arrière-plan
         if command -v dolphin >/dev/null; then
@@ -742,33 +742,33 @@ function activer_fond_anime_kde() {
         fi
         
         sleep 2
-        echo "🎥 Saisissez le chemin complet du fichier vidéo :"
-        read -p "📂 Chemin vers la vidéo : " video_path
+        echo "Saisissez le chemin complet du fichier vidéo :"
+        read -p "Chemin vers la vidéo : " video_path
     fi
     
     # Vérifier que le fichier existe et est une vidéo
     if [ ! -f "$video_path" ]; then
-        echo "❌ Fichier non trouvé : $video_path"
+        echo "Fichier non trouvé : $video_path"
         return 1
     fi
     
     # Vérifier l'extension
     case "${video_path,,}" in
         *.mp4|*.webm|*.mkv|*.avi|*.mov|*.flv)
-            echo "✅ Format vidéo supporté détecté"
+            echo "Format vidéo supporté détecté"
             ;;
         *)
-            echo "❌ Format non supporté. Utilisez : mp4, webm, mkv, avi, mov, flv"
+            echo "Format non supporté. Utilisez : mp4, webm, mkv, avi, mov, flv"
             return 1
             ;;
     esac
     
     local video_name=$(basename "$video_path")
     
-    echo -e "\n🛠️ Création du fond d'écran vidéo pour '$video_name'..."
+    echo -e "\n Création du fond d'écran vidéo pour '$video_name'..."
 
     # Installer les dépendances nécessaires
-    echo "📦 Vérification des dépendances multimédia..."
+    echo "Vérification des dépendances multimédia..."
     if command -v apt >/dev/null 2>&1; then
         sudo apt install qml-module-qtmultimedia gstreamer1.0-plugins-good gstreamer1.0-plugins-bad -y >/dev/null 2>&1
     elif command -v pacman >/dev/null 2>&1; then
@@ -896,21 +896,21 @@ Rectangle {
 EOF
 
     # Reconstruire le cache de KDE
-    echo "🔄 Reconstruction du cache KDE..."
+    echo "Reconstruction du cache KDE..."
     kbuildsycoca5 --noincremental >/dev/null 2>&1
 
     # Configuration du fond d'écran via plasma-apply-wallpaperimage si disponible
-    echo "⚙️ Tentative d'application automatique..."
+    echo "Tentative d'application automatique..."
     
     # Essayer différentes méthodes d'application
     if command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then
         # Méthode 1: plasma-apply-wallpaperimage (ne fonctionne que pour les images)
-        echo "📝 Utilisation de plasma-apply-wallpaperimage..."
+        echo "Utilisation de plasma-apply-wallpaperimage..."
     fi
     
     # Méthode 2: Configuration directe via dbus
     if command -v qdbus >/dev/null 2>&1; then
-        echo "📝 Configuration via DBus..."
+        echo "Configuration via DBus..."
         # Essayer de configurer le bureau principal
         qdbus org.kde.plasmashell /PlasmaShell evaluateScript "
             var allDesktops = desktops();
@@ -919,40 +919,40 @@ EOF
                 d.wallpaperPlugin = 'bear_video';
                 d.currentConfigGroup = Array('Wallpaper', 'bear_video', 'General');
             }
-        " 2>/dev/null || echo "⚠️ Configuration DBus échouée"
+        " 2>/dev/null || echo "Configuration DBus échouée"
     fi
     
     # Redémarrer plasmashell pour appliquer les changements
-    echo "🔄 Redémarrage de Plasmashell..."
+    echo "Redémarrage de Plasmashell..."
     killall plasmashell 2>/dev/null
     sleep 3
     kstart plasmashell >/dev/null 2>&1 &
     
-    echo -e "\n✅ FOND D'ÉCRAN VIDÉO CONFIGURÉ !"
-    echo "🎬 Vidéo: $video_name"
+    echo -e "\nFOND D'ÉCRAN VIDÉO CONFIGURÉ !"
+    echo "Vidéo: $video_name"
     echo ""
-    echo "📌 Si le fond d'écran ne s'applique pas automatiquement :"
+    echo "Si le fond d'écran ne s'applique pas automatiquement :"
     echo "1. Clic droit sur le bureau → 'Configurer le bureau et le fond d'écran'"
     echo "2. Type de fond d'écran → 'Bear Video Wallpaper'"
     echo "3. Appliquer"
     echo ""
-    echo "💡 Le fond d'écran vidéo sera visible dans 5-10 secondes..."
-    echo "🖱️ Clic sur le fond d'écran pour mettre en pause/reprendre"
+    echo "Le fond d'écran vidéo sera visible dans 5-10 secondes..."
+    echo "Clic sur le fond d'écran pour mettre en pause/reprendre"
 }
 
 # Thèmes d'icônes système complets (dossier icons-themes du repo)
 function appliquer_theme_icones_systeme() {
-    echo -e "\n🎨 THÈMES D'ICÔNES SYSTÈME COMPLETS"
+    echo -e "\nTHÈMES D'ICÔNES SYSTÈME COMPLETS"
     
     # Vérifier que le dossier icons-themes existe
     ICONS_THEMES_DIR="$REPO_DIR/icons-themes"
     if [ ! -d "$ICONS_THEMES_DIR" ]; then
-        echo "❌ Dossier icons-themes introuvable dans le dépôt"
-        echo "💡 Vérifiez que le dépôt contient bien le dossier icons-themes"
+        echo "Dossier icons-themes introuvable dans le dépôt"
+        echo "Vérifiez que le dépôt contient bien le dossier icons-themes"
         return 1
     fi
     
-    echo "📦 Thèmes d'icônes disponibles :"
+    echo "Thèmes d'icônes disponibles :"
     local i=1
     declare -a ICON_THEMES_KEYS
     declare -a ICON_THEMES_PATHS
@@ -978,14 +978,14 @@ function appliquer_theme_icones_systeme() {
     \) -print0)
     
     if [ $i -eq 1 ]; then
-        echo "❌ Aucun thème d'icônes trouvé dans $ICONS_THEMES_DIR"
-        echo "📁 Formats supportés: .tar.xz, .tar.gz, .tgz, .tar.bz2, .tbz, .zip, .7z"
+        echo "Aucun thème d'icônes trouvé dans $ICONS_THEMES_DIR"
+        echo "Formats supportés: .tar.xz, .tar.gz, .tgz, .tar.bz2, .tbz, .zip, .7z"
         return 1
     fi
     
-    read -p "🎯 Choisissez un thème d'icônes [1-$((i-1))]: " choice
+    read -p "Choisissez un thème d'icônes [1-$((i-1))]: " choice
     if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice >= i)); then
-        echo "❌ Choix invalide."
+        echo "Choix invalide."
         return 1
     fi
     
@@ -993,7 +993,7 @@ function appliquer_theme_icones_systeme() {
     selected_archive="${ICON_THEMES_PATHS[$choice]}"
     archive_ext="${selected_archive##*.}"
     
-    echo "🛠️ Installation du thème $selected_theme..."
+    echo "Installation du thème $selected_theme..."
     
     # Dossier de destination pour les icônes système
     ICONS_DEST_DIR="$HOME/.local/share/icons"
@@ -1003,7 +1003,7 @@ function appliquer_theme_icones_systeme() {
     mkdir -p "$ICONS_DEST_DIR"
     
     # Extraire l'archive selon son format
-    echo "📦 Extraction de l'archive..."
+    echo "Extraction de l'archive..."
     case "$archive_ext" in
         xz|gz|bz2|tgz|tbz)
             # Archives tar avec différentes compressions
@@ -1022,13 +1022,13 @@ function appliquer_theme_icones_systeme() {
             if command -v 7z >/dev/null; then
                 7z x "$selected_archive" -o"$ICONS_DEST_DIR" -y
             else
-                echo "❌ 7z n'est pas installé. Installation..."
+                echo "7z n'est pas installé. Installation..."
                 sudo apt install p7zip-full -y || sudo pacman -S p7zip --noconfirm || sudo dnf install p7zip -y
                 7z x "$selected_archive" -o"$ICONS_DEST_DIR" -y
             fi
             ;;
         *)
-            echo "❌ Format non supporté: $archive_ext"
+            echo "Format non supporté: $archive_ext"
             return 1
             ;;
     esac
@@ -1044,40 +1044,40 @@ function appliquer_theme_icones_systeme() {
     done
     
     if [ -z "$extracted_dir" ]; then
-        echo "❌ Impossible de trouver le dossier du thème après extraction"
-        echo "🔍 Contenu extrait:"
+        echo "Impossible de trouver le dossier du thème après extraction"
+        echo "Contenu extrait:"
         ls -la "$ICONS_DEST_DIR"
         return 1
     fi
     
-    echo "✅ Thème extrait: $theme_name"
+    echo "Thème extrait: $theme_name"
     
     # Application automatique selon l'environnement de bureau
-    echo "⚙️ Application du thème d'icônes..."
+    echo "Application du thème d'icônes..."
     
     if pgrep -x "plasmashell" >/dev/null 2>&1; then
         # KDE Plasma
         kwriteconfig5 --file kdeglobals --group Icons --key Theme "$theme_name"
-        echo "✅ Thème d'icônes appliqué pour KDE Plasma: $theme_name"
+        echo "Thème d'icônes appliqué pour KDE Plasma: $theme_name"
         
     elif pgrep -x "gnome-shell" >/dev/null 2>&1; then
         # GNOME
         gsettings set org.gnome.desktop.interface icon-theme "$theme_name"
-        echo "✅ Thème d'icônes appliqué pour GNOME: $theme_name"
+        echo "Thème d'icônes appliqué pour GNOME: $theme_name"
         
     elif pgrep -x "xfce4-panel" >/dev/null 2>&1; then
         # XFCE
         xfconf-query -c xsettings -p /Net/IconThemeName -s "$theme_name"
-        echo "✅ Thème d'icônes appliqué pour XFCE: $theme_name"
+        echo "Thème d'icônes appliqué pour XFCE: $theme_name"
         
     else
-        echo "⚠️ Environnement de bureau non reconnu"
-        echo "💡 Thème installé dans: $extracted_dir"
-        echo "📋 Sélectionnez-le manuellement dans les paramètres de votre bureau"
+        echo "Environnement de bureau non reconnu"
+        echo "Thème installé dans: $extracted_dir"
+        echo "Sélectionnez-le manuellement dans les paramètres de votre bureau"
     fi
     
     # Actualiser le cache d'icônes
-    echo "🔄 Actualisation du cache d'icônes..."
+    echo "Actualisation du cache d'icônes..."
     gtk-update-icon-cache -f -t "$extracted_dir" 2>/dev/null || true
     
     # Forcer le rechargement dans KDE
@@ -1085,14 +1085,14 @@ function appliquer_theme_icones_systeme() {
         kquitapp5 plasmashell && kstart plasmashell &
     fi
     
-    echo "🎉 Thème d'icônes '$theme_name' installé avec succès!"
-    echo "🔄 Les changements seront visibles après redémarrage de la session"
+    echo "Thème d'icônes '$theme_name' installé avec succès!"
+    echo "Les changements seront visibles après redémarrage de la session"
 }
 
 # Interface utilisateur
 function menu_principal() {
     while true; do
-        echo -e "\n🐻 BearGrubChanger"
+        echo -e "\n BearGrubChanger"
         echo "1. Installer tous les thèmes, polices, icônes + GRUB + Plymouth + SDDM"
         echo "2. Changer le thème GRUB"
         echo "3. Appliquer une police pour le menu GRUB"
@@ -1105,7 +1105,7 @@ function menu_principal() {
         echo "10. Fond d'écran animé KDE Plasma (sélection vidéo)"
         echo "11. Tester Plymouth"
         echo "0. Quitter"
-        read -p "🎮 Choix : " opt
+        read -p "Choix : " opt
 
         case "$opt" in
             1)
@@ -1127,8 +1127,8 @@ function menu_principal() {
             9) ajuster_delai_grub ;;
             10) activer_fond_anime_kde ;;
             11) appliquer_theme_icones_systeme ;;
-            0) echo "👋 Vzy casse-toi d'là "; exit 0 ;;
-            *) echo "❌ Option invalide." ;;
+            0) echo "Vzy casse-toi d'là "; exit 0 ;;
+            *) echo "Option invalide." ;;
         esac
     done
 }
