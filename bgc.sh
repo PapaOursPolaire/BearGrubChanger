@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 49.8, mise à jour le 24/08/2025 à 17:29
+# Version 88.8, mise à jour le 30/08/2025 à 18:25
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -1103,7 +1103,7 @@ function menu_principal() {
         echo "8. Changer le thème SDDM"
         echo "9. Ajuster le délai de sélection GRUB"
         echo "10. Fond d'écran animé KDE Plasma (sélection vidéo)"
-        echo "11. Tester Plymouth"
+        echo "11. Thème global"
         echo "0. Quitter"
         read -p "Choix : " opt
 
