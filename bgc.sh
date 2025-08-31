@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 88.8, mise à jour le 30/08/2025 à 18:25
+# Version 108.8, mise à jour le 31/08/2025 à 22:01
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -373,10 +373,12 @@ function installer_sddm() {
 
 function choisir_theme_sddm() {
     echo "Thèmes SDDM disponibles :"
-    local i=1
+    echo "0. SDDM Customisé (vidéo/GIF/images aléatoires)"
+    local i=2
     SDDM_KEYS=()
+    SDDM_KEYS[1]="custom"
     for theme in "$SDDM_THEMES_DIR"/*; do
-        if [ -d "$theme" ]; then
+        if [ -d "$theme" ] && [ "$(basename "$theme")" != "custom" ]; then
             name=$(basename "$theme")
             echo "$i. $name"
             SDDM_KEYS[$i]="$name"
@@ -385,24 +387,134 @@ function choisir_theme_sddm() {
     done
 
     read -p "Choix du thème SDDM : " sddm_choice
-    if ! [[ "$sddm_choice" =~ ^[0-9]+$ ]] || ((sddm_choice < 1 || sddm_choice >= i)); then
+    if ! [[ "$sddm_choice" =~ ^[0-9]+$ ]] || ((sddm_choice < 0 || sddm_choice >= i)); then
         echo "Choix invalide."; exit 1
     fi
 
-    selected="${SDDM_KEYS[$sddm_choice]}"
-    echo "Activation du thème $selected..."
-    
-    # Créer le dossier de configuration si inexistant
-    sudo mkdir -p "$SDDM_CONFIG_DIR"
-    
-    # Configurer SDDM pour utiliser le thème sélectionné
-    sudo tee "$SDDM_CONFIG_DIR/bear-theme.conf" >/dev/null <<EOF
+    if [ "$sddm_choice" -eq 0 ]; then
+        configurer_sddm_customise
+    else
+        selected="${SDDM_KEYS[$sddm_choice]}"
+        echo "Activation du thème $selected..."
+        
+        # Créer le dossier de configuration si inexistant
+        sudo mkdir -p "$SDDM_CONFIG_DIR"
+        
+        # Configurer SDDM pour utiliser le thème sélectionné
+        sudo tee "$SDDM_CONFIG_DIR/bear-theme.conf" >/dev/null <<EOF
 [Theme]
 Current=$selected
 EOF
 
-    echo "Thème SDDM $selected appliqué."
+        echo "Thème SDDM $selected appliqué."
+        echo "Redémarrez SDDM pour voir les changements: sudo systemctl restart sddm"
+    fi
+}
+
+function configurer_sddm_customise() {
+    echo -e "\nCONFIGURATION DU THÈME SDDM CUSTOMISÉ"
+    echo "Options disponibles:"
+    echo "1. Utiliser une vidéo/GIF personnalisé"
+    echo "2. Utiliser des images aléatoires depuis un dossier"
+    read -p "Votre choix [1-2]: " custom_choice
+
+    # Créer le dossier du thème custom s'il n'existe pas
+    CUSTOM_SDDM_THEME_DIR="$SDDM_DIR/custom"
+    sudo mkdir -p "$CUSTOM_SDDM_THEME_DIR"
+    sudo mkdir -p "$CUSTOM_SDDM_THEME_DIR/backgrounds"
+
+    # Copier les fichiers du thème custom
+    sudo cp "$REPO_DIR/sddm/video/Main.qml" "$CUSTOM_SDDM_THEME_DIR/"
+    sudo cp "$REPO_DIR/sddm/video/metadata.desktop" "$CUSTOM_SDDM_THEME_DIR/"
+    sudo cp "$REPO_DIR/sddm/video/theme.conf" "$CUSTOM_SDDM_THEME_DIR/"
+    sudo cp "$REPO_DIR/sddm/video/loginterminalc.png" "$CUSTOM_SDDM_THEME_DIR/"
+
+    if [ "$custom_choice" -eq 1 ]; then
+        # Mode vidéo/GIF personnalisé
+        echo "Ouverture de l'explorateur de fichiers pour sélectionner une vidéo/GIF..."
+        
+        # Ouvrir l'explorateur
+        if command -v dolphin >/dev/null; then
+            dolphin "$HOME" >/dev/null 2>&1 &
+        elif command -v nautilus >/dev/null; then
+            nautilus "$HOME" >/dev/null 2>&1 &
+        elif command -v thunar >/dev/null; then
+            thunar "$HOME" >/dev/null 2>&1 &
+        else
+            xdg-open "$HOME" >/dev/null 2>&1 &
+        fi
+        
+        sleep 2
+        read -p "Chemin complet vers le fichier vidéo/GIF: " media_path
+        
+        if [ -f "$media_path" ]; then
+            # Copier le média dans le dossier du thème
+            sudo cp "$media_path" "$CUSTOM_SDDM_THEME_DIR/"
+            media_filename=$(basename "$media_path")
+            
+            # Mettre à jour le fichier theme.conf
+            sudo tee "$CUSTOM_SDDM_THEME_DIR/theme.conf" >/dev/null <<EOF
+[General]
+background=fallout3titlescreen.mp4
+
+[Custom]
+CustomBackgroundPath=$CUSTOM_SDDM_THEME_DIR/$media_filename
+UseRandomImages=false
+ImageFolderPath=$CUSTOM_SDDM_THEME_DIR/backgrounds
+EOF
+        else
+            echo "Fichier non trouvé. Utilisation de la configuration par défaut."
+        fi
+        
+    elif [ "$custom_choice" -eq 2 ]; then
+        # Mode images aléatoires
+        echo "Ouverture de l'explorateur pour sélectionner un dossier d'images..."
+        
+        if command -v dolphin >/dev/null; then
+            dolphin "$HOME" >/dev/null 2>&1 &
+        elif command -v nautilus >/dev/null; then
+            nautilus "$HOME" >/dev/null 2>&1 &
+        elif command -v thunar >/dev/null; then
+            thunar "$HOME" >/dev/null 2>&1 &
+        else
+            xdg-open "$HOME" >/dev/null 2>&1 &
+        fi
+        
+        sleep 2
+        read -p "Chemin complet vers le dossier d'images: " images_dir
+        
+        if [ -d "$images_dir" ]; then
+            # Copier les images dans le dossier backgrounds
+            sudo cp "$images_dir"/*.{jpg,jpeg,png,bmp} "$CUSTOM_SDDM_THEME_DIR/backgrounds/" 2>/dev/null || true
+            
+            # Mettre à jour le fichier theme.conf
+            sudo tee "$CUSTOM_SDDM_THEME_DIR/theme.conf" >/dev/null <<EOF
+[General]
+background=fallout3titlescreen.mp4
+
+[Custom]
+CustomBackgroundPath=
+UseRandomImages=true
+ImageFolderPath=$CUSTOM_SDDM_THEME_DIR/backgrounds
+EOF
+        else
+            echo "Dossier non trouvé. Utilisation de la configuration par défaut."
+        fi
+    fi
+
+    # Configurer SDDM pour utiliser le thème custom
+    sudo mkdir -p "$SDDM_CONFIG_DIR"
+    sudo tee "$SDDM_CONFIG_DIR/bear-theme.conf" >/dev/null <<EOF
+[Theme]
+Current=custom
+EOF
+
+    echo -e "\nThème SDDM customisé configuré !"
     echo "Redémarrez SDDM pour voir les changements: sudo systemctl restart sddm"
+    echo "Le thème supporte:"
+    echo "- Vidéos (mp4, webm, avi)"
+    echo "- GIF animés"
+    echo "- Images aléatoires depuis un dossier"
 }
 
 # Splashscreen KDE avec support GIF optimisé
