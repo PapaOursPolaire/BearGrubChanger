@@ -1,78 +1,15 @@
-/***************************************************************************
- * This config was meant specifically for the Steam Deck,
- *that being the case you will have to change certain things in the
- *code to make it more functional for your use case.
- *Things changed for the steam deck include: custom video size settings,
- *custom OSK settings, custom focus settings.
- *There's a custom background image for the login stuff and you will
- *need and your own custom video to play as the looping background.
- *I included the warning info below since it was included in the file.
- *you can test your theme out using the command:
- *sddm-greeter --test-mode --theme /usr/share/sddm/themes/fallout3/
- ***************************************************************************/
-/***************************************************************************
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without restriction,
- * including without limitation the rights to use, copy, modify, merge,
- * publish, distribute, sublicense, and/or sell copies of the Software,
- * and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
- * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
- * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
- * OR OTHER DEALINGS IN THE SOFTWARE.
- ***************************************************************************/
-
-
+/* 
+Auteur : PapaOursPolaire
+Repo GitHub : https://github.com/PapaOursPolaire/BearGrubChanger
+Contact : papaourspolairegithub@gmail.com
+*/
 import QtMultimedia 5.13
 import QtQuick 2.15
 import SddmComponents 2.0
+import QtQuick.Controls 2.15
+import Qt.labs.folderlistmodel 2.15
 
 Rectangle {
-
-    // ---------- FOND D'ÉCRAN MODIFIÉ (vidéo -> gif -> images aléatoires) ----------
-    Item {
-        id: background
-        anchors.fill: parent
-
-        // Fallback GIF (animé) — visible au démarrage
-        AnimatedImage {
-            id: fallbackGif
-            anchors.fill: parent
-            source: "background.gif"
-            fillMode: Image.PreserveAspectCrop
-            playing: true
-            visible: true
-            smooth: true
-        }
-
-        // Vidéo principale — masque le GIF quand elle commence
-        Video {
-            id: bgVideo
-            anchors.fill: parent
-            source: "background.mp4"
-            autoPlay: true
-            loops: MediaPlayer.Infinite
-            muted: false
-            fillMode: VideoOutput.PreserveAspectCrop
-
-            onPlaying: fallbackGif.visible = false
-            onStatusChanged: {
-                if (status === MediaPlayer.InvalidMedia) {
-                    fallbackGif.visible = true
-                }
-            }
-        }
-    }
-
     id: container
     width: 640
     height: 480
@@ -81,6 +18,9 @@ Rectangle {
     LayoutMirroring.childrenInherit: true
 
     property int sessionIndex: session.index
+    property string customBackgroundPath: config.CustomBackgroundPath || ""
+    property bool useRandomImages: config.UseRandomImages || false
+    property string imageFolderPath: config.ImageFolderPath || "/usr/share/sddm/themes/custom/backgrounds"
 
     TextConstants { id: textConstants }
 
@@ -104,20 +44,89 @@ Rectangle {
         }
     }
 
-    MediaPlayer {
-        id: videoPlayer
-        source: "file:///usr/share/sddm/themes/fallout3/fallout3titlescreen.mp4"
-        autoPlay: true
-        muted: true
-        loops: -1
-    }
-
-    VideoOutput {
+    // ---------- FOND D'ÉCRAN DYNAMIQUE ----------
+    Item {
+        id: background
         anchors.fill: parent
-        source: videoPlayer
-        fillMode: VideoOutput.Stretch
+
+        // Mode images aléatoires
+        Image {
+            id: randomImage
+            anchors.fill: parent
+            source: useRandomImages && imageFolderModel.count > 0 ? 
+                   "file://" + imageFolderModel.get(currentImageIndex, "filePath") : ""
+            fillMode: Image.PreserveAspectCrop
+            visible: useRandomImages && imageFolderModel.count > 0
+            smooth: true
+            
+            Timer {
+                interval: 5000 // Change d'image toutes les 5 secondes
+                running: useRandomImages && imageFolderModel.count > 1
+                repeat: true
+                onTriggered: {
+                    currentImageIndex = (currentImageIndex + 1) % imageFolderModel.count
+                }
+            }
+        }
+
+        // Mode vidéo/GIF personnalisé
+        AnimatedImage {
+            id: customGif
+            anchors.fill: parent
+            source: !useRandomImages && customBackgroundPath.endsWith(".gif") ? 
+                   "file://" + customBackgroundPath : ""
+            fillMode: Image.PreserveAspectCrop
+            playing: true
+            visible: !useRandomImages && customBackgroundPath.endsWith(".gif")
+            smooth: true
+        }
+
+        Video {
+            id: customVideo
+            anchors.fill: parent
+            source: !useRandomImages && (customBackgroundPath.endsWith(".mp4") || 
+                    customBackgroundPath.endsWith(".webm") || 
+                    customBackgroundPath.endsWith(".avi")) ? 
+                   "file://" + customBackgroundPath : ""
+            autoPlay: true
+            loops: MediaPlayer.Infinite
+            muted: true
+            fillMode: VideoOutput.PreserveAspectCrop
+            visible: !useRandomImages && (customBackgroundPath.endsWith(".mp4") || 
+                     customBackgroundPath.endsWith(".webm") || 
+                     customBackgroundPath.endsWith(".avi"))
+
+            onStatusChanged: {
+                if (status === MediaPlayer.InvalidMedia) {
+                    fallbackBackground.visible = true
+                }
+            }
+        }
+
+        // Fallback si aucun média valide
+        Rectangle {
+            id: fallbackBackground
+            anchors.fill: parent
+            color: "black"
+            visible: (useRandomImages && imageFolderModel.count === 0) || 
+                    (!useRandomImages && customBackgroundPath === "")
+        }
     }
 
+    // Modèle pour charger les images du dossier
+    FolderListModel {
+        id: imageFolderModel
+        folder: "file://" + imageFolderPath
+        nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.bmp"]
+        showDirs: false
+        onStatusChanged: {
+            if (status === FolderListModel.Ready) {
+                console.log("Images trouvées:", count)
+            }
+        }
+    }
+
+    property int currentImageIndex: 0
 
     Rectangle {
         anchors.fill: parent
@@ -132,18 +141,16 @@ Rectangle {
 
             timeFont {
                 family: "Consolas"
-                bold: true  // Make the font bold
-                pixelSize: 90  // Adjust the font size as desired
+                bold: true
+                pixelSize: 90
             }
 
             dateFont {
                 family: "Lucida Console"
-                bold: true  // Make the font bold
-                pixelSize: 30  // Adjust the font size as desired
+                bold: true
+                pixelSize: 30
             }
         }
-
-
 
         Image {
             id: rectangle
@@ -395,7 +402,7 @@ Rectangle {
     Component.onCompleted: {
         if (name.text === "")
             name.focus = false
-            else
-                keyboardTriggerButton.focus = false
+        else
+            password.focus = true
     }
 }
