@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 148.8, mise à jour le 01/09/2025 - 20:07
+# Version 168.8, mise à jour le 01/09/2025 - 20:42
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -414,110 +414,358 @@ EOF
     fi
 }
 
-function configurer_sddm_customise() {
-    echo -e "\nCONFIGURATION DU THÈME SDDM CUSTOMISÉ"
-    echo "Options disponibles:"
-    echo "1. Utiliser une vidéo/GIF personnalisé"
-    echo "2. Utiliser des images aléatoires depuis un dossier"
-    read -p "Votre choix [1-2]: " custom_choice
+function selectionner_fichier_interactif() {
+    local dossier_initial="${1:-$HOME}"
+    local types_fichiers="${2:-*}"
+    local titre="${3:-Sélectionnez un fichier}"
+    
+    # Utiliser zenity si disponible (interface graphique)
+    if command -v zenity >/dev/null; then
+        local fichier_selectionne=$(zenity --file-selection --title="$titre" --filename="$dossier_initial/" --file-filter="$types_fichiers" 2>/dev/null)
+        if [ -n "$fichier_selectionne" ] && [ -f "$fichier_selectionne" ]; then
+            echo "$fichier_selectionne"
+            return 0
+        fi
+    fi
+    
+    # Utiliser kdialog pour KDE si disponible
+    if command -v kdialog >/dev/null; then
+        local fichier_selectionne=$(kdialog --getopenfilename "$dossier_initial" "$types_fichiers" --title "$titre" 2>/dev/null)
+        if [ -n "$fichier_selectionne" ] && [ -f "$fichier_selectionne" ]; then
+            echo "$fichier_selectionne"
+            return 0
+        fi
+    fi
+    
+    # Fallback: ouvrir l'explorateur et attendre la saisie
+    echo "Ouverture de l'explorateur de fichiers..."
+    if command -v dolphin >/dev/null; then
+        dolphin "$dossier_initial" >/dev/null 2>&1 &
+    elif command -v nautilus >/dev/null; then
+        nautilus "$dossier_initial" >/dev/null 2>&1 &
+    elif command -v thunar >/dev/null; then
+        thunar "$dossier_initial" >/dev/null 2>&1 &
+    else
+        xdg-open "$dossier_initial" >/dev/null 2>&1 &
+    fi
+    
+    sleep 3
+    echo "Naviguez dans l'explorateur et copiez le chemin complet du fichier"
+    read -p "Collez le chemin complet ici : " fichier_saisi
+    
+    if [ -f "$fichier_saisi" ]; then
+        echo "$fichier_saisi"
+        return 0
+    else
+        echo ""
+        return 1
+    fi
+}
 
-    # Créer le dossier du thème custom s'il n'existe pas
+# Fonction pour sélectionner un dossier
+function selectionner_dossier_interactif() {
+    local dossier_initial="${1:-$HOME}"
+    local titre="${2:-Sélectionnez un dossier}"
+    
+    # Utiliser zenity si disponible
+    if command -v zenity >/dev/null; then
+        local dossier_selectionne=$(zenity --file-selection --directory --title="$titre" --filename="$dossier_initial/" 2>/dev/null)
+        if [ -n "$dossier_selectionne" ] && [ -d "$dossier_selectionne" ]; then
+            echo "$dossier_selectionne"
+            return 0
+        fi
+    fi
+    
+    # Utiliser kdialog pour KDE si disponible
+    if command -v kdialog >/dev/null; then
+        local dossier_selectionne=$(kdialog --getexistingdirectory "$dossier_initial" --title "$titre" 2>/dev/null)
+        if [ -n "$dossier_selectionne" ] && [ -d "$dossier_selectionne" ]; then
+            echo "$dossier_selectionne"
+            return 0
+        fi
+    fi
+    
+    # Fallback
+    echo "Ouverture de l'explorateur de fichiers..."
+    if command -v dolphin >/dev/null; then
+        dolphin "$dossier_initial" >/dev/null 2>&1 &
+    elif command -v nautilus >/dev/null; then
+        nautilus "$dossier_initial" >/dev/null 2>&1 &
+    elif command -v thunar >/dev/null; then
+        thunar "$dossier_initial" >/dev/null 2>&1 &
+    else
+        xdg-open "$dossier_initial" >/dev/null 2>&1 &
+    fi
+    
+    sleep 3
+    echo "Naviguez vers le dossier désiré et copiez son chemin"
+    read -p "Collez le chemin complet du dossier ici : " dossier_saisi
+    
+    if [ -d "$dossier_saisi" ]; then
+        echo "$dossier_saisi"
+        return 0
+    else
+        echo ""
+        return 1
+    fi
+}
+
+# Fonction améliorée pour SDDM customisé
+function configurer_sddm_customise() {
+    echo -e "\nCONFIGURATION DU THEME SDDM CUSTOMISE"
+    echo "Ce theme permet d'utiliser vos propres medias comme arriere-plan de connexion"
+    echo ""
+    echo "Options disponibles:"
+    echo "1. Video ou GIF personnalise (fichier unique en boucle)"
+    echo "2. Diaporama d'images aleatoires depuis un dossier"
+    echo "3. Annuler et revenir au menu"
+    echo ""
+    read -p "Votre choix [1-3]: " custom_choice
+
+    case "$custom_choice" in
+        3|"")
+            echo "Configuration annulee"
+            return 0
+            ;;
+    esac
+
+    # Verification des dependances
+    if ! command -v zenity >/dev/null && ! command -v kdialog >/dev/null; then
+        echo "Installation des outils de selection graphique..."
+        if command -v apt >/dev/null; then
+            sudo apt install zenity -y >/dev/null 2>&1
+        elif command -v pacman >/dev/null; then
+            sudo pacman -S zenity --noconfirm >/dev/null 2>&1
+        elif command -v dnf >/dev/null; then
+            sudo dnf install zenity -y >/dev/null 2>&1
+        fi
+    fi
+
+    # Creation de la structure du theme custom
     CUSTOM_SDDM_THEME_DIR="$SDDM_DIR/custom"
+    echo "Preparation du theme custom SDDM..."
+    
     sudo mkdir -p "$CUSTOM_SDDM_THEME_DIR"
     sudo mkdir -p "$CUSTOM_SDDM_THEME_DIR/backgrounds"
 
-    # Copier les fichiers du thème custom
-    sudo cp "$REPO_DIR/sddm/video/Main.qml" "$CUSTOM_SDDM_THEME_DIR/"
-    sudo cp "$REPO_DIR/sddm/video/metadata.desktop" "$CUSTOM_SDDM_THEME_DIR/"
-    sudo cp "$REPO_DIR/sddm/video/theme.conf" "$CUSTOM_SDDM_THEME_DIR/"
-    sudo cp "$REPO_DIR/sddm/video/loginterminalc.png" "$CUSTOM_SDDM_THEME_DIR/"
+    # Verification de l'existence des fichiers source
+    if [ ! -d "$REPO_DIR/sddm" ]; then
+        echo "Erreur: Dossier sddm non trouve dans le depot"
+        echo "Executez d'abord l'option 1 du menu principal pour cloner le depot"
+        return 1
+    fi
+
+    # Copie des fichiers du theme de base
+    for fichier in "Main.qml" "metadata.desktop" "theme.conf" "loginterminalc.png"; do
+        if [ -f "$REPO_DIR/sddm/video/$fichier" ]; then
+            sudo cp "$REPO_DIR/sddm/video/$fichier" "$CUSTOM_SDDM_THEME_DIR/"
+        else
+            echo "Attention: Fichier $fichier non trouve dans le depot"
+        fi
+    done
 
     if [ "$custom_choice" -eq 1 ]; then
-        # Mode vidéo/GIF personnalisé
-        echo "Ouverture de l'explorateur de fichiers pour sélectionner une vidéo/GIF..."
+        # Mode video/GIF personnalise
+        echo -e "\nSELECTION D'UNE VIDEO OU D'UN GIF"
+        echo "Formats supportes: mp4, webm, avi, mkv, mov, gif"
+        echo ""
         
-        # Ouvrir l'explorateur
-        if command -v dolphin >/dev/null; then
-            dolphin "$HOME" >/dev/null 2>&1 &
-        elif command -v nautilus >/dev/null; then
-            nautilus "$HOME" >/dev/null 2>&1 &
-        elif command -v thunar >/dev/null; then
-            thunar "$HOME" >/dev/null 2>&1 &
-        else
-            xdg-open "$HOME" >/dev/null 2>&1 &
+        # Determiner le dossier de depart pour la recherche
+        local dossier_videos="$HOME"
+        for dir in "$HOME/Videos" "$HOME/Videos" "$HOME/Downloads" "$HOME/Telechargements" "$HOME/Desktop" "$HOME/Bureau"; do
+            if [ -d "$dir" ]; then
+                dossier_videos="$dir"
+                break
+            fi
+        done
+        
+        echo "Dossier de recherche initial: $dossier_videos"
+        echo "Selection du fichier media..."
+        
+        # Selection interactive du fichier
+        local media_path=$(selectionner_fichier_gui \
+            "$dossier_videos" \
+            "Selectionnez une video ou un GIF pour SDDM" \
+            "Videos et GIF|*.mp4 *.webm *.avi *.mkv *.mov *.gif")
+        
+        if [ -z "$media_path" ]; then
+            echo "Aucun fichier selectionne. Configuration annulee."
+            return 1
         fi
         
-        sleep 2
-        read -p "Chemin complet vers le fichier vidéo/GIF: " media_path
+        # Verification du format
+        local extension="${media_path##*.}"
+        case "${extension,,}" in
+            mp4|webm|avi|mkv|mov|gif)
+                echo "Format valide detecte: $extension"
+                ;;
+            *)
+                echo "Erreur: Format non supporte '$extension'"
+                echo "Utilisez: mp4, webm, avi, mkv, mov, gif"
+                return 1
+                ;;
+        esac
         
-        if [ -f "$media_path" ]; then
-            # Copier le média dans le dossier du thème
-            sudo cp "$media_path" "$CUSTOM_SDDM_THEME_DIR/"
-            media_filename=$(basename "$media_path")
-            
-            # Mettre à jour le fichier theme.conf
-            sudo tee "$CUSTOM_SDDM_THEME_DIR/theme.conf" >/dev/null <<EOF
+        # Verification de la taille du fichier
+        local taille_mo=$(du -m "$media_path" | cut -f1)
+        if [ "$taille_mo" -gt 100 ]; then
+            echo "Attention: Fichier volumineux ($taille_mo Mo)"
+            echo "Recommandation: utilisez des fichiers < 50 Mo pour des performances optimales"
+            read -p "Continuer quand meme ? [y/N]: " continuer
+            if [[ ! "$continuer" =~ ^[Yy]$ ]]; then
+                echo "Configuration annulee"
+                return 1
+            fi
+        fi
+        
+        # Copie du fichier media
+        local media_filename=$(basename "$media_path")
+        local media_filename_safe=$(echo "$media_filename" | tr ' ' '_' | tr -cd '[:alnum:]._-')
+        
+        echo "Copie du media: $media_filename"
+        if sudo cp "$media_path" "$CUSTOM_SDDM_THEME_DIR/$media_filename_safe"; then
+            echo "Media copie avec succes"
+        else
+            echo "Erreur lors de la copie du fichier"
+            return 1
+        fi
+        
+        # Configuration du theme
+        sudo tee "$CUSTOM_SDDM_THEME_DIR/theme.conf" >/dev/null <<EOF
 [General]
-background=fallout3titlescreen.mp4
+background=$media_filename_safe
 
 [Custom]
-CustomBackgroundPath=$CUSTOM_SDDM_THEME_DIR/$media_filename
+CustomBackgroundPath=$CUSTOM_SDDM_THEME_DIR/$media_filename_safe
 UseRandomImages=false
 ImageFolderPath=$CUSTOM_SDDM_THEME_DIR/backgrounds
+MediaType=${extension,,}
 EOF
-        else
-            echo "Fichier non trouvé. Utilisation de la configuration par défaut."
-        fi
+        
+        echo "Configuration terminee avec le fichier: $media_filename"
         
     elif [ "$custom_choice" -eq 2 ]; then
-        # Mode images aléatoires
-        echo "Ouverture de l'explorateur pour sélectionner un dossier d'images..."
+        # Mode images aleatoires
+        echo -e "\nSELECTION D'UN DOSSIER D'IMAGES"
+        echo "Le theme affichera aleatoirement les images de ce dossier"
+        echo "Formats supportes: jpg, jpeg, png, bmp, gif"
+        echo ""
         
-        if command -v dolphin >/dev/null; then
-            dolphin "$HOME" >/dev/null 2>&1 &
-        elif command -v nautilus >/dev/null; then
-            nautilus "$HOME" >/dev/null 2>&1 &
-        elif command -v thunar >/dev/null; then
-            thunar "$HOME" >/dev/null 2>&1 &
-        else
-            xdg-open "$HOME" >/dev/null 2>&1 &
+        # Determiner le dossier de depart
+        local dossier_images="$HOME"
+        for dir in "$HOME/Pictures" "$HOME/Images" "$HOME/Photos" "$HOME/Desktop" "$HOME/Bureau"; do
+            if [ -d "$dir" ]; then
+                dossier_images="$dir"
+                break
+            fi
+        done
+        
+        echo "Dossier de recherche initial: $dossier_images"
+        echo "Selection du dossier d'images..."
+        
+        # Selection interactive du dossier
+        local images_dir=$(selectionner_dossier_gui \
+            "$dossier_images" \
+            "Selectionnez le dossier contenant vos images")
+        
+        if [ -z "$images_dir" ]; then
+            echo "Aucun dossier selectionne. Configuration annulee."
+            return 1
         fi
         
-        sleep 2
-        read -p "Chemin complet vers le dossier d'images: " images_dir
+        # Verification et copie des images
+        echo "Analyse du dossier: $images_dir"
+        local copied_count=0
+        local total_size=0
         
-        if [ -d "$images_dir" ]; then
-            # Copier les images dans le dossier backgrounds
-            sudo cp "$images_dir"/*.{jpg,jpeg,png,bmp} "$CUSTOM_SDDM_THEME_DIR/backgrounds/" 2>/dev/null || true
-            
-            # Mettre à jour le fichier theme.conf
-            sudo tee "$CUSTOM_SDDM_THEME_DIR/theme.conf" >/dev/null <<EOF
+        # Copier les images par format
+        for extension in jpg jpeg png bmp gif; do
+            for image in "$images_dir"/*."$extension" "$images_dir"/*."${extension^^}"; do
+                if [ -f "$image" ]; then
+                    local image_name=$(basename "$image")
+                    local image_name_safe=$(echo "$image_name" | tr ' ' '_' | tr -cd '[:alnum:]._-')
+                    
+                    if sudo cp "$image" "$CUSTOM_SDDM_THEME_DIR/backgrounds/$image_name_safe"; then
+                        copied_count=$((copied_count + 1))
+                        local size=$(du -k "$image" | cut -f1)
+                        total_size=$((total_size + size))
+                    fi
+                fi
+            done
+        done
+        
+        if [ $copied_count -eq 0 ]; then
+            echo "Erreur: Aucune image trouvee dans le dossier selectionne"
+            echo "Formats acceptes: jpg, jpeg, png, bmp, gif"
+            return 1
+        fi
+        
+        echo "$copied_count images copiees ($(($total_size / 1024)) Mo au total)"
+        
+        # Configuration du theme
+        sudo tee "$CUSTOM_SDDM_THEME_DIR/theme.conf" >/dev/null <<EOF
 [General]
-background=fallout3titlescreen.mp4
+background=
 
 [Custom]
 CustomBackgroundPath=
 UseRandomImages=true
 ImageFolderPath=$CUSTOM_SDDM_THEME_DIR/backgrounds
+ImageCount=$copied_count
+SourceFolder=$images_dir
 EOF
-        else
-            echo "Dossier non trouvé. Utilisation de la configuration par défaut."
-        fi
+        
+        echo "Configuration terminee avec $copied_count images aleatoires"
+        
+    else
+        echo "Option invalide"
+        return 1
     fi
 
-    # Configurer SDDM pour utiliser le thème custom
+    # Configuration finale de SDDM
+    echo -e "\nActivation du theme SDDM custom..."
     sudo mkdir -p "$SDDM_CONFIG_DIR"
+    
+    # Creation du fichier de configuration SDDM
     sudo tee "$SDDM_CONFIG_DIR/bear-theme.conf" >/dev/null <<EOF
 [Theme]
 Current=custom
+CursorTheme=default
+
+[General]
+Numlock=on
 EOF
 
-    echo -e "\nThème SDDM customisé configuré !"
-    echo "Redémarrez SDDM pour voir les changements: sudo systemctl restart sddm"
-    echo "Le thème supporte:"
-    echo "- Vidéos (mp4, webm, avi)"
-    echo "- GIF animés"
-    echo "- Images aléatoires depuis un dossier"
+    # Verification de l'activation de SDDM
+    if systemctl is-enabled sddm >/dev/null 2>&1; then
+        echo "SDDM est active comme gestionnaire de connexion"
+    else
+        echo "Attention: SDDM n'est pas le gestionnaire de connexion actuel"
+        read -p "Activer SDDM comme gestionnaire par defaut ? [y/N]: " activer_sddm
+        if [[ "$activer_sddm" =~ ^[Yy]$ ]]; then
+            sudo systemctl enable sddm
+            sudo systemctl set-default graphical.target
+            echo "SDDM active. Redemarrage necessaire pour voir les changements."
+        fi
+    fi
+
+    echo -e "\n=== CONFIGURATION TERMINEE ==="
+    echo "Theme SDDM custom configure avec succes !"
+    echo ""
+    echo "Pour voir les changements:"
+    echo "1. Redemarrez SDDM: sudo systemctl restart sddm"
+    echo "2. Ou redemarrez l'ordinateur"
+    echo ""
+    echo "Fonctionnalites du theme:"
+    if [ "$custom_choice" -eq 1 ]; then
+        echo "- Video/GIF personnalise en arriere-plan"
+        echo "- Lecture automatique en boucle"
+    else
+        echo "- Diaporama d'images aleatoires"
+        echo "- Changement d'image a chaque connexion"
+    fi
+    echo "- Interface de connexion moderne et fluide"
+    echo "- Compatible avec tous les gestionnaires de fenetres"
 }
 
 # Splashscreen KDE avec support GIF optimisé
@@ -802,7 +1050,7 @@ function activer_fond_anime_kde() {
     echo "   $VIDEOS_DIR"
     
     # Méthode 1: Lister les vidéos disponibles directement
-    echo -e "\n🔍 Recherche de vidéos dans les dossiers courants..."
+    echo -e "\nRecherche de vidéos dans les dossiers courants..."
     declare -a video_files
     
     # CORRECTION : Boucle while complète et correctement formée
@@ -1187,7 +1435,7 @@ function appliquer_theme_icones_systeme() {
         
     else
         echo "Environnement de bureau non reconnu"
-        echo "Thème installé dans: $extracted_dir"
+        echo "Thème installé dans : $extracted_dir"
         echo "Sélectionnez-le manuellement dans les paramètres de votre bureau"
     fi
     
@@ -1285,7 +1533,7 @@ function mettre_a_jour_systeme() {
         done
     fi
     
-    echo -e "\n✅ MISE À JOUR SYSTÈME TERMINÉE"
+    echo -e "\nnnMISE À JOUR SYSTÈME TERMINÉE"
     echo "Il est recommandé de redémarrer le système pour appliquer tous les changements"
     read -p "Redémarrer maintenant ? [y/N]: " restart_choice
     if [[ "$restart_choice" =~ ^[Yy]$ ]]; then
@@ -1659,105 +1907,320 @@ EOF
 # Ajouter une nouvelle image
 function ajouter_image_fastfetch() {
     echo -e "\nAJOUT D'IMAGE POUR FASTFETCH"
+    echo "Fastfetch peut afficher des logos personnalises lors de l'affichage des informations systeme"
+    echo ""
     
-    echo "Méthodes d'ajout :"
-    echo "1. Parcourir les fichiers"
-    echo "2. Depuis une URL"
-    echo "3. Depuis le dossier Images/Pictures"
+    # Verification de l'installation de Fastfetch
+    if ! command -v fastfetch >/dev/null; then
+        echo "Fastfetch n'est pas installe."
+        read -p "Installer Fastfetch maintenant ? [y/N]: " installer_ff
+        if [[ "$installer_ff" =~ ^[Yy]$ ]]; then
+            installer_fastfetch || return 1
+        else
+            echo "Installation annulee"
+            return 1
+        fi
+    fi
     
-    read -p "Choisissez une méthode [1-3]: " add_method
+    # Creation des dossiers necessaires
+    mkdir -p "$FASTFETCH_CONFIG_DIR"
+    mkdir -p "$FASTFETCH_LOGOS_DIR"
+    mkdir -p "$FASTFETCH_IMAGES_DIR"
     
+    echo "Methodes d'ajout d'image:"
+    echo "1. Selection graphique via explorateur de fichiers"
+    echo "2. Telechargement depuis une URL"
+    echo "3. Parcourir les images detectees automatiquement"
+    echo "4. Copier depuis le presse-papiers (chemin d'image)"
+    echo "5. Annuler"
+    echo ""
+    read -p "Choisissez une methode [1-5]: " add_method
+
     local source_image=""
+    local method_name=""
     
     case "$add_method" in
         1)
-            # Parcourir les fichiers
-            echo "Ouverture de l'explorateur..."
-            if command -v dolphin >/dev/null; then
-                dolphin "$HOME" >/dev/null 2>&1 &
-            elif command -v nautilus >/dev/null; then
-                nautilus "$HOME" >/dev/null 2>&1 &
-            else
-                xdg-open "$HOME" >/dev/null 2>&1 &
+            # Selection graphique interactive
+            method_name="Selection graphique"
+            echo -e "\nSELECTION GRAPHIQUE D'IMAGE"
+            
+            # Verification des outils de dialogue
+            if ! command -v zenity >/dev/null && ! command -v kdialog >/dev/null; then
+                echo "Installation des outils de selection graphique..."
+                if command -v apt >/dev/null; then
+                    sudo apt install zenity -y >/dev/null 2>&1
+                elif command -v pacman >/dev/null; then
+                    sudo pacman -S zenity --noconfirm >/dev/null 2>&1
+                fi
             fi
             
-            sleep 2
-            read -p "Chemin complet vers l'image : " source_image
+            # Determiner le dossier de depart
+            local dossier_images="$HOME"
+            for dir in "$HOME/Pictures" "$HOME/Images" "$HOME/Photos" "$HOME/Desktop" "$HOME/Bureau" "$HOME/Downloads" "$HOME/Telechargements"; do
+                if [ -d "$dir" ]; then
+                    dossier_images="$dir"
+                    break
+                fi
+            done
+            
+            echo "Dossier de recherche initial: $dossier_images"
+            echo "Ouverture du selecteur de fichiers..."
+            
+            source_image=$(selectionner_fichier_gui \
+                "$dossier_images" \
+                "Selectionnez une image pour Fastfetch" \
+                "Images|*.png *.jpg *.jpeg *.gif *.bmp *.svg *.webp *.ico")
             ;;
+            
         2)
-            # Depuis URL
-            read -p "URL de l'image : " image_url
-            if [[ "$image_url" =~ ^https?:// ]]; then
-                local filename=$(basename "$image_url" | sed 's/[^a-zA-Z0-9._-]/_/g')
-                source_image="/tmp/fastfetch_$filename"
-                echo "Téléchargement de l'image..."
-                wget -O "$source_image" "$image_url" 2>/dev/null || curl -o "$source_image" "$image_url" 2>/dev/null
+            # Telechargement depuis URL
+            method_name="Telechargement URL"
+            echo -e "\nTELECHARGEMENT DEPUIS URL"
+            echo "Entrez l'URL d'une image (formats: png, jpg, jpeg, gif, bmp, svg, webp)"
+            echo "Exemple: https://example.com/logo.png"
+            echo ""
+            read -p "URL de l'image: " image_url
+            
+            if [[ ! "$image_url" =~ ^https?:// ]]; then
+                echo "Erreur: URL invalide (doit commencer par http:// ou https://)"
+                return 1
+            fi
+            
+            # Extraction du nom de fichier et nettoyage
+            local filename=$(basename "$image_url" | sed 's/[^a-zA-Z0-9._-]/_/g')
+            if [ -z "$filename" ] || [[ "$filename" == *"_"* ]]; then
+                filename="fastfetch_image_$(date +%s).png"
+            fi
+            
+            source_image="/tmp/fastfetch_dl_$filename"
+            echo "Telechargement en cours..."
+            
+            if command -v wget >/dev/null; then
+                if wget -q --timeout=10 --tries=2 -O "$source_image" "$image_url"; then
+                    echo "Telechargement reussi via wget"
+                else
+                    echo "Echec du telechargement avec wget"
+                    return 1
+                fi
+            elif command -v curl >/dev/null; then
+                if curl -s --max-time 10 --retry 2 -o "$source_image" "$image_url"; then
+                    echo "Telechargement reussi via curl"
+                else
+                    echo "Echec du telechargement avec curl"
+                    return 1
+                fi
             else
-                echo "URL invalide"
+                echo "Erreur: ni wget ni curl ne sont installes"
                 return 1
             fi
             ;;
-        3)
-            # Depuis dossier Images
-            local pics_dirs=("$HOME/Pictures" "$HOME/Images" "$HOME/Desktop" "$HOME/Bureau")
-            echo "Images trouvées :"
-            local i=1
-            declare -a found_images
             
-            for dir in "${pics_dirs[@]}"; do
+        3)
+            # Parcours automatique des images
+            method_name="Detection automatique"
+            echo -e "\nIMAGES DETECTEES AUTOMATIQUEMENT"
+            echo "Recherche d'images dans les dossiers courants..."
+            
+            # Recherche dans plusieurs dossiers
+            local search_dirs=("$HOME/Pictures" "$HOME/Images" "$HOME/Photos" "$HOME/Desktop" "$HOME/Bureau" "$HOME/Downloads" "$HOME/Telechargements")
+            declare -a found_images
+            local i=1
+            
+            echo "Images trouvees:"
+            for dir in "${search_dirs[@]}"; do
                 if [ -d "$dir" ]; then
                     while IFS= read -r -d $'\0' img; do
-                        echo "$i. $(basename "$img") ($(dirname "$img"))"
-                        found_images[$i]="$img"
-                        ((i++))
-                    done < <(find "$dir" -maxdepth 2 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" -o -iname "*.bmp" \) -print0 2>/dev/null | head -20)
+                        if [ $i -le 25 ]; then  # Limiter a 25 images pour la lisibilite
+                            local size=$(du -h "$img" 2>/dev/null | cut -f1)
+                            echo "$i. $(basename "$img") - $size ($(dirname "$img"))"
+                            found_images[$i]="$img"
+                            ((i++))
+                        fi
+                    done < <(find "$dir" -maxdepth 2 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" -o -iname "*.bmp" -o -iname "*.svg" -o -iname "*.webp" \) -print0 2>/dev/null)
                 fi
             done
             
             if [ $i -eq 1 ]; then
-                echo "Aucune image trouvée dans les dossiers courants"
+                echo "Aucune image trouvee dans les dossiers courants"
+                echo "Essayez la methode 1 pour parcourir manuellement"
                 return 1
             fi
             
+            echo ""
             read -p "Choisissez une image [1-$((i-1))]: " img_choice
             if [[ "$img_choice" =~ ^[0-9]+$ ]] && ((img_choice >= 1 && img_choice < i)); then
                 source_image="${found_images[$img_choice]}"
+                echo "Image selectionnee: $(basename "$source_image")"
             else
                 echo "Choix invalide"
                 return 1
             fi
             ;;
+            
+        4)
+            # Presse-papiers (chemin)
+            method_name="Presse-papiers"
+            echo -e "\nCOPIE DEPUIS LE PRESSE-PAPIERS"
+            echo "Copiez le chemin complet d'une image dans le presse-papiers"
+            echo "Puis appuyez sur Entree"
+            echo ""
+            read -p "Collez le chemin de l'image ici: " clipboard_path
+            
+            if [ -f "$clipboard_path" ]; then
+                source_image="$clipboard_path"
+                echo "Chemin valide: $(basename "$source_image")"
+            else
+                echo "Erreur: Fichier non trouve: $clipboard_path"
+                return 1
+            fi
+            ;;
+            
+        5|"")
+            echo "Ajout d'image annule"
+            return 0
+            ;;
+            
         *)
-            echo "Méthode invalide"
+            echo "Methode invalide"
             return 1
             ;;
     esac
     
-    if [ ! -f "$source_image" ]; then
-        echo "Fichier non trouvé : $source_image"
+    # Verification du fichier source
+    if [ -z "$source_image" ] || [ ! -f "$source_image" ]; then
+        echo "Erreur: Aucune image selectionnee ou fichier inexistant"
         return 1
     fi
     
-    # Convertir et copier l'image
-    local img_name="$(basename "$source_image" | sed 's/[^a-zA-Z0-9._-]/_/g')"
-    local dest_original="$FASTFETCH_IMAGES_DIR/$img_name"
-    local dest_converted="$FASTFETCH_LOGOS_DIR/converted_$img_name.png"
+    # Verification du format d'image
+    local extension="${source_image##*.}"
+    case "${extension,,}" in
+        png|jpg|jpeg|gif|bmp|svg|webp|ico)
+            echo "Format d'image valide: $extension"
+            ;;
+        *)
+            echo "Attention: Format potentiellement non supporte: $extension"
+            read -p "Continuer quand meme ? [y/N]: " continuer
+            if [[ ! "$continuer" =~ ^[Yy]$ ]]; then
+                return 1
+            fi
+            ;;
+    esac
     
-    # Copier l'original
-    cp "$source_image" "$dest_original"
-    
-    # Convertir pour Fastfetch
-    convertir_image_fastfetch "$source_image" "$dest_converted" 60 30
-    
-    echo "Image ajoutée :"
-    echo "- Original : $dest_original"
-    echo "- Converti : $dest_converted"
-    echo "L'image est maintenant disponible dans les options de configuration"
-    
-    # Nettoyer le fichier temporaire si c'était un téléchargement
-    if [[ "$source_image" == "/tmp/fastfetch_"* ]]; then
-        rm -f "$source_image"
+    # Verification de la taille
+    if [ -f "$source_image" ]; then
+        local size_kb=$(du -k "$source_image" | cut -f1)
+        if [ $size_kb -gt 1024 ]; then  # Plus de 1 Mo
+            echo "Attention: Image volumineuse ($(du -h "$source_image" | cut -f1))"
+            echo "Recommandation: utilisez des images < 500 KB pour de meilleures performances"
+        fi
     fi
+    
+    # Preparation des noms de fichiers
+    local img_name=$(basename "$source_image" | sed 's/[^a-zA-Z0-9._-]/_/g')
+    local timestamp=$(date +%s)
+    local dest_original="$FASTFETCH_IMAGES_DIR/original_${timestamp}_${img_name}"
+    local dest_converted="$FASTFETCH_LOGOS_DIR/converted_${timestamp}_${img_name%.*}.png"
+    
+    echo -e "\nTRAITEMENT DE L'IMAGE"
+    echo "Methode utilisee: $method_name"
+    echo "Image source: $(basename "$source_image")"
+    
+    # Copie de l'original
+    if cp "$source_image" "$dest_original"; then
+        echo "Original sauvegarde: $(basename "$dest_original")"
+    else
+        echo "Erreur lors de la sauvegarde de l'original"
+        return 1
+    fi
+    
+    # Conversion pour Fastfetch
+    echo "Conversion pour Fastfetch (optimisation taille et format)..."
+    
+    # Verification de la presence d'ImageMagick
+    if ! command -v convert >/dev/null; then
+        echo "Installation d'ImageMagick pour la conversion..."
+        if command -v apt >/dev/null; then
+            sudo apt install imagemagick -y
+        elif command -v pacman >/dev/null; then
+            sudo pacman -S imagemagick --noconfirm
+        elif command -v dnf >/dev/null; then
+            sudo dnf install ImageMagick -y
+        else
+            echo "Impossible d'installer ImageMagick automatiquement"
+            echo "Image originale disponible sans conversion"
+            dest_converted="$dest_original"
+        fi
+    fi
+    
+    # Conversion avec ImageMagick si disponible
+    if command -v convert >/dev/null && [ "$dest_converted" != "$dest_original" ]; then
+        if convert "$source_image" \
+            -resize "80x40>" \
+            -colors 256 \
+            -strip \
+            -quality 85 \
+            "$dest_converted" 2>/dev/null; then
+            
+            local size_original=$(du -h "$dest_original" | cut -f1)
+            local size_converted=$(du -h "$dest_converted" | cut -f1)
+            echo "Conversion reussie:"
+            echo "  Original: $size_original"
+            echo "  Convertie: $size_converted"
+        else
+            echo "Erreur de conversion, utilisation de l'original"
+            dest_converted="$dest_original"
+        fi
+    fi
+    
+    # Test de l'image avec Fastfetch
+    echo -e "\nTEST AVEC FASTFETCH"
+    echo "Test d'affichage avec la nouvelle image..."
+    
+    # Creation d'une configuration temporaire pour test
+    local config_test="/tmp/fastfetch_test_config.jsonc"
+    cat > "$config_test" <<EOF
+{
+    "logo": {
+        "source": "$dest_converted",
+        "width": 60,
+        "height": 30
+    },
+    "modules": ["title", "os", "kernel", "cpu", "memory"]
+}
+EOF
+    
+    # Execution du test
+    if timeout 10 fastfetch --config "$config_test" 2>/dev/null; then
+        echo "Test reussi ! L'image fonctionne avec Fastfetch"
+        rm -f "$config_test"
+    else
+        echo "Attention: Test partiel ou echec, mais l'image a ete ajoutee"
+        rm -f "$config_test"
+    fi
+    
+    # Nettoyage des fichiers temporaires
+    if [[ "$source_image" == "/tmp/fastfetch_dl_"* ]]; then
+        rm -f "$source_image"
+        echo "Fichier temporaire nettoye"
+    fi
+    
+    # Informations finales
+    echo -e "\nIMAGE AJOUTEE AVEC SUCCES"
+    echo "Methode: $method_name"
+    echo "Fichiers crees:"
+    echo "  Original: $dest_original"
+    echo "  Optimise: $dest_converted"
+    echo ""
+    echo "Utilisation:"
+    echo "1. Option 'Logo fixe personnalise' dans le menu Fastfetch"
+    echo "2. Option 'Logo aleatoire' pour rotation automatique"
+    echo "3. Configuration manuelle avec: fastfetch --logo '$dest_converted'"
+    echo ""
+    echo "L'image est maintenant disponible dans les options de configuration Fastfetch"
+    
+    return 0
 }
 
 # Restaurer configuration par défaut
