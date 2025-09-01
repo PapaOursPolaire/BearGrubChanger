@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 108.8, mise à jour le 31/08/2025 à 22:01
+# Version 138.8, mise à jour le 01/09/2025 - 20:02
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -15,6 +15,9 @@ PLYMOUTH_TRANSITIONS_DIR="$REPO_DIR/plymouth/transitions"
 SDDM_DIR="/usr/share/sddm/themes"
 SDDM_CONFIG_DIR="/etc/sddm.conf.d"
 SDDM_THEMES_DIR="$REPO_DIR/sddm"
+FASTFETCH_CONFIG_DIR="$HOME/.config/fastfetch"
+FASTFETCH_IMAGES_DIR="$REPO_DIR/fastfetch/images"
+FASTFETCH_LOGOS_DIR="$FASTFETCH_CONFIG_DIR/logos"
 
 # Menu GRUB
 function verifier_et_installer_grub() {
@@ -1201,10 +1204,589 @@ function appliquer_theme_icones_systeme() {
     echo "Les changements seront visibles après redémarrage de la session"
 }
 
+function mettre_a_jour_systeme() {
+    echo -e "\nMISE À JOUR COMPLÈTE DU SYSTÈME"
+    echo "Cette opération peut prendre du temps selon votre connexion..."
+    
+    # Détecter la distribution et utiliser le gestionnaire de paquets approprié
+    if command -v apt >/dev/null; then
+        echo "Distribution basée sur Debian/Ubuntu détectée"
+        echo "Mise à jour de la liste des paquets..."
+        sudo apt update
+        
+        echo "Mise à jour des paquets installés..."
+        sudo apt upgrade -y
+        
+        echo "Mise à jour de la distribution..."
+        sudo apt dist-upgrade -y
+        
+        echo "Nettoyage des paquets obsolètes..."
+        sudo apt autoremove -y
+        sudo apt autoclean
+        
+        # Mise à jour des snaps si disponible
+        if command -v snap >/dev/null; then
+            echo "Mise à jour des paquets Snap..."
+            sudo snap refresh
+        fi
+        
+    elif command -v pacman >/dev/null; then
+        echo "Distribution basée sur Arch Linux détectée"
+        echo "Mise à jour complète du système..."
+        sudo pacman -Syu --noconfirm
+        
+        echo "Nettoyage du cache..."
+        sudo pacman -Sc --noconfirm
+        
+        # AUR helper si disponible
+        if command -v yay >/dev/null; then
+            echo "Mise à jour des paquets AUR avec yay..."
+            yay -Syu --noconfirm
+        elif command -v paru >/dev/null; then
+            echo "Mise à jour des paquets AUR avec paru..."
+            paru -Syu --noconfirm
+        fi
+        
+    elif command -v dnf >/dev/null; then
+        echo "Distribution basée sur Red Hat/Fedora détectée"
+        echo "Mise à jour du système..."
+        sudo dnf upgrade -y
+        
+        echo "Nettoyage..."
+        sudo dnf autoremove -y
+        sudo dnf clean all
+        
+    elif command -v zypper >/dev/null; then
+        echo "Distribution basée sur openSUSE détectée"
+        echo "Mise à jour du système..."
+        sudo zypper update -y
+        
+        echo "Mise à jour de la distribution..."
+        sudo zypper dup -y
+        
+    else
+        echo "Gestionnaire de paquets non supporté"
+        echo "Systèmes supportés : Debian/Ubuntu, Arch Linux, Red Hat/Fedora, openSUSE"
+        return 1
+    fi
+    
+    # Mise à jour des paquets Flatpak si disponible
+    if command -v flatpak >/dev/null; then
+        echo "Mise à jour des applications Flatpak..."
+        flatpak update -y 2>/dev/null || true
+    fi
+    
+    # Mise à jour d'AppImage via AppImageUpdate si disponible
+    if command -v appimageupdate >/dev/null; then
+        echo "Recherche des AppImages à mettre à jour..."
+        find "$HOME" -name "*.AppImage" -executable 2>/dev/null | while read appimage; do
+            echo "Mise à jour de $(basename "$appimage")..."
+            appimageupdate "$appimage" 2>/dev/null || true
+        done
+    fi
+    
+    echo -e "\n✅ MISE À JOUR SYSTÈME TERMINÉE"
+    echo "Il est recommandé de redémarrer le système pour appliquer tous les changements"
+    read -p "Redémarrer maintenant ? [y/N]: " restart_choice
+    if [[ "$restart_choice" =~ ^[Yy]$ ]]; then
+        echo "Redémarrage dans 5 secondes..."
+        sleep 5
+        sudo reboot
+    fi
+}
+
+# Fonction pour installer Fastfetch si nécessaire
+function installer_fastfetch() {
+    if command -v fastfetch >/dev/null; then
+        echo "Fastfetch est déjà installé"
+        return 0
+    fi
+    
+    echo "Installation de Fastfetch..."
+    if command -v apt >/dev/null; then
+        # Pour Ubuntu/Debian récents
+        sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y 2>/dev/null || {
+            # Installation manuelle si le PPA n'est pas disponible
+            wget -O /tmp/fastfetch.deb https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-amd64.deb
+            sudo dpkg -i /tmp/fastfetch.deb
+            sudo apt -f install -y
+        }
+        sudo apt update && sudo apt install fastfetch -y
+        
+    elif command -v pacman >/dev/null; then
+        sudo pacman -S fastfetch --noconfirm
+        
+    elif command -v dnf >/dev/null; then
+        sudo dnf install fastfetch -y
+        
+    elif command -v zypper >/dev/null; then
+        sudo zypper install fastfetch -y
+        
+    else
+        echo "Installation manuelle depuis GitHub..."
+        wget -O /tmp/fastfetch.tar.gz https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-amd64.tar.gz
+        tar -xzf /tmp/fastfetch.tar.gz -C /tmp/
+        sudo cp /tmp/fastfetch-*/usr/bin/fastfetch /usr/local/bin/
+        sudo chmod +x /usr/local/bin/fastfetch
+    fi
+    
+    if command -v fastfetch >/dev/null; then
+        echo "Fastfetch installé avec succès"
+    else
+        echo "Échec de l'installation de Fastfetch"
+        return 1
+    fi
+}
+
+# Fonction de conversion d'image pour Fastfetch
+function convertir_image_fastfetch() {
+    local image_path="$1"
+    local output_path="$2"
+    local max_width="${3:-60}"
+    local max_height="${4:-30}"
+    
+    if ! command -v convert >/dev/null; then
+        echo "Installation d'ImageMagick pour la conversion..."
+        if command -v apt >/dev/null; then
+            sudo apt install imagemagick -y
+        elif command -v pacman >/dev/null; then
+            sudo pacman -S imagemagick --noconfirm
+        elif command -v dnf >/dev/null; then
+            sudo dnf install ImageMagick -y
+        fi
+    fi
+    
+    # Conversion et redimensionnement pour Fastfetch
+    convert "$image_path" \
+        -resize "${max_width}x${max_height}>" \
+        -colors 256 \
+        "$output_path" 2>/dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo "Image convertie: $(basename "$output_path")"
+        return 0
+    else
+        echo "Erreur lors de la conversion de l'image"
+        return 1
+    fi
+}
+
+# Fonction principale de customisation Fastfetch
+function customiser_fastfetch() {
+    echo -e "\nCUSTOMISATION DE FASTFETCH"
+    
+    # Installer Fastfetch si nécessaire
+    installer_fastfetch || return 1
+    
+    # Créer les dossiers nécessaires
+    mkdir -p "$FASTFETCH_CONFIG_DIR"
+    mkdir -p "$FASTFETCH_LOGOS_DIR"
+    
+    # Vérifier si le dossier d'images existe dans le repo
+    if [ ! -d "$FASTFETCH_IMAGES_DIR" ]; then
+        echo "Dossier d'images Fastfetch non trouvé dans le dépôt"
+        echo "Création du dossier pour images personnalisées..."
+        mkdir -p "$FASTFETCH_IMAGES_DIR"
+    fi
+    
+    echo "Options de customisation Fastfetch :"
+    echo "1. Logo fixe personnalisé"
+    echo "2. Logo aléatoire à chaque lancement"
+    echo "3. Ajouter une nouvelle image/logo"
+    echo "4. Restaurer la configuration par défaut"
+    echo "0. Retour au menu principal"
+    
+    read -p "Votre choix [0-4]: " fastfetch_choice
+    
+    case "$fastfetch_choice" in
+        1) configurer_logo_fixe_fastfetch ;;
+        2) configurer_logo_aleatoire_fastfetch ;;
+        3) ajouter_image_fastfetch ;;
+        4) restaurer_config_fastfetch ;;
+        0) return 0 ;;
+        *) echo "Choix invalide" ;;
+    esac
+}
+
+# Configuration logo fixe
+function configurer_logo_fixe_fastfetch() {
+    echo -e "\nCONFIGURATION LOGO FIXE FASTFETCH"
+    
+    # Lister les images disponibles
+    declare -a available_images
+    local i=1
+    
+    echo "Images disponibles :"
+    
+    # Images du repo
+    if [ -d "$FASTFETCH_IMAGES_DIR" ]; then
+        for img in "$FASTFETCH_IMAGES_DIR"/*.{png,jpg,jpeg,gif,bmp,svg}; do
+            if [ -f "$img" ]; then
+                echo "$i. $(basename "$img") (repo)"
+                available_images[$i]="$img"
+                ((i++))
+            fi
+        done
+    fi
+    
+    # Images déjà converties
+    for img in "$FASTFETCH_LOGOS_DIR"/*.{png,jpg,jpeg}; do
+        if [ -f "$img" ]; then
+            echo "$i. $(basename "$img") (converti)"
+            available_images[$i]="$img"
+            ((i++))
+        fi
+    done
+    
+    echo "$i. Parcourir pour sélectionner un fichier"
+    
+    if [ $i -eq 1 ]; then
+        echo "Aucune image trouvée. Utilisez l'option 3 pour ajouter des images."
+        return 1
+    fi
+    
+    read -p "Choisissez une image [1-$i]: " img_choice
+    
+    local selected_image=""
+    
+    if [[ "$img_choice" =~ ^[0-9]+$ ]] && ((img_choice >= 1 && img_choice < i)); then
+        selected_image="${available_images[$img_choice]}"
+    elif [ "$img_choice" = "$i" ]; then
+        # Ouvrir l'explorateur de fichiers
+        echo "Ouverture de l'explorateur..."
+        if command -v dolphin >/dev/null; then
+            dolphin "$HOME" >/dev/null 2>&1 &
+        elif command -v nautilus >/dev/null; then
+            nautilus "$HOME" >/dev/null 2>&1 &
+        else
+            xdg-open "$HOME" >/dev/null 2>&1 &
+        fi
+        
+        sleep 2
+        read -p "Chemin complet vers l'image : " selected_image
+    else
+        echo "Choix invalide"
+        return 1
+    fi
+    
+    if [ ! -f "$selected_image" ]; then
+        echo "Fichier non trouvé : $selected_image"
+        return 1
+    fi
+    
+    # Convertir l'image pour Fastfetch
+    local logo_name="logo_$(date +%s).png"
+    local converted_path="$FASTFETCH_LOGOS_DIR/$logo_name"
+    
+    echo "Conversion de l'image pour Fastfetch..."
+    convertir_image_fastfetch "$selected_image" "$converted_path" 60 30
+    
+    # Créer la configuration Fastfetch
+    cat > "$FASTFETCH_CONFIG_DIR/config.jsonc" <<EOF
+{
+    "logo": {
+        "source": "$converted_path",
+        "width": 60,
+        "height": 30,
+        "padding": {
+            "top": 1,
+            "left": 2
+        }
+    },
+    "display": {
+        "color": {
+            "keys": "blue",
+            "title": "yellow"
+        }
+    },
+    "modules": [
+        "title",
+        "separator",
+        "os",
+        "host",
+        "kernel",
+        "uptime",
+        "packages",
+        "shell",
+        "display",
+        "de",
+        "wm",
+        "wmtheme",
+        "theme",
+        "icons",
+        "font",
+        "cursor",
+        "terminal",
+        "terminalfont",
+        "cpu",
+        "gpu",
+        "memory",
+        "disk",
+        "localip",
+        "battery",
+        "locale",
+        "break",
+        "colors"
+    ]
+}
+EOF
+    
+    echo "Configuration Fastfetch créée avec logo fixe: $(basename "$selected_image")"
+    echo "Testez avec la commande : fastfetch"
+}
+
+# Configuration logo aléatoire
+function configurer_logo_aleatoire_fastfetch() {
+    echo -e "\nCONFIGURATION LOGO ALÉATOIRE FASTFETCH"
+    
+    # Vérifier qu'il y a des images disponibles
+    local img_count=$(find "$FASTFETCH_IMAGES_DIR" "$FASTFETCH_LOGOS_DIR" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) 2>/dev/null | wc -l)
+    
+    if [ "$img_count" -eq 0 ]; then
+        echo "Aucune image disponible. Ajoutez des images avec l'option 3."
+        return 1
+    fi
+    
+    # Créer le script de sélection aléatoire
+    cat > "$FASTFETCH_CONFIG_DIR/random_logo.sh" <<'EOF'
+#!/bin/bash
+
+# Dossiers contenant les logos
+LOGOS_DIRS=("$HOME/.config/fastfetch/logos" "$HOME/.grub-themes/BearGrubChanger/fastfetch/images")
+CONFIG_FILE="$HOME/.config/fastfetch/config.jsonc"
+
+# Trouver tous les logos disponibles
+declare -a logos
+for dir in "${LOGOS_DIRS[@]}"; do
+    if [ -d "$dir" ]; then
+        while IFS= read -r -d $'\0' logo; do
+            logos+=("$logo")
+        done < <(find "$dir" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) -print0 2>/dev/null)
+    fi
+done
+
+if [ ${#logos[@]} -eq 0 ]; then
+    echo "Aucun logo trouvé"
+    exit 1
+fi
+
+# Sélectionner un logo aléatoire
+random_logo="${logos[$RANDOM % ${#logos[@]}]}"
+
+# Créer la configuration avec le logo aléatoire
+cat > "$CONFIG_FILE" <<FASTFETCH_CONFIG
+{
+    "logo": {
+        "source": "$random_logo",
+        "width": 60,
+        "height": 30,
+        "padding": {
+            "top": 1,
+            "left": 2
+        }
+    },
+    "display": {
+        "color": {
+            "keys": "blue",
+            "title": "yellow"
+        }
+    },
+    "modules": [
+        "title",
+        "separator",
+        "os",
+        "host",
+        "kernel",
+        "uptime",
+        "packages",
+        "shell",
+        "display",
+        "de",
+        "wm",
+        "wmtheme",
+        "theme",
+        "icons",
+        "font",
+        "cursor",
+        "terminal",
+        "terminalfont",
+        "cpu",
+        "gpu",
+        "memory",
+        "disk",
+        "localip",
+        "battery",
+        "locale",
+        "break",
+        "colors"
+    ]
+}
+FASTFETCH_CONFIG
+EOF
+    
+    chmod +x "$FASTFETCH_CONFIG_DIR/random_logo.sh"
+    
+    # Créer un alias pour fastfetch avec logo aléatoire
+    cat > "$FASTFETCH_CONFIG_DIR/fastfetch_random.sh" <<EOF
+#!/bin/bash
+"$FASTFETCH_CONFIG_DIR/random_logo.sh" && fastfetch
+EOF
+    
+    chmod +x "$FASTFETCH_CONFIG_DIR/fastfetch_random.sh"
+    
+    # Ajouter l'alias au .bashrc ou .zshrc
+    local shell_rc=""
+    if [ -n "$ZSH_VERSION" ]; then
+        shell_rc="$HOME/.zshrc"
+    else
+        shell_rc="$HOME/.bashrc"
+    fi
+    
+    # Retirer l'ancien alias s'il existe
+    sed -i '/alias fastfetch-random/d' "$shell_rc" 2>/dev/null
+    
+    # Ajouter le nouveau alias
+    echo "alias fastfetch-random='$FASTFETCH_CONFIG_DIR/fastfetch_random.sh'" >> "$shell_rc"
+    
+    echo "Configuration logo aléatoire créée !"
+    echo "Utilisez 'fastfetch-random' pour un logo différent à chaque fois"
+    echo "Ou rechargez votre terminal et utilisez l'alias après : source $shell_rc"
+    
+    # Test immédiat
+    "$FASTFETCH_CONFIG_DIR/fastfetch_random.sh"
+}
+
+# Ajouter une nouvelle image
+function ajouter_image_fastfetch() {
+    echo -e "\nAJOUT D'IMAGE POUR FASTFETCH"
+    
+    echo "Méthodes d'ajout :"
+    echo "1. Parcourir les fichiers"
+    echo "2. Depuis une URL"
+    echo "3. Depuis le dossier Images/Pictures"
+    
+    read -p "Choisissez une méthode [1-3]: " add_method
+    
+    local source_image=""
+    
+    case "$add_method" in
+        1)
+            # Parcourir les fichiers
+            echo "Ouverture de l'explorateur..."
+            if command -v dolphin >/dev/null; then
+                dolphin "$HOME" >/dev/null 2>&1 &
+            elif command -v nautilus >/dev/null; then
+                nautilus "$HOME" >/dev/null 2>&1 &
+            else
+                xdg-open "$HOME" >/dev/null 2>&1 &
+            fi
+            
+            sleep 2
+            read -p "Chemin complet vers l'image : " source_image
+            ;;
+        2)
+            # Depuis URL
+            read -p "URL de l'image : " image_url
+            if [[ "$image_url" =~ ^https?:// ]]; then
+                local filename=$(basename "$image_url" | sed 's/[^a-zA-Z0-9._-]/_/g')
+                source_image="/tmp/fastfetch_$filename"
+                echo "Téléchargement de l'image..."
+                wget -O "$source_image" "$image_url" 2>/dev/null || curl -o "$source_image" "$image_url" 2>/dev/null
+            else
+                echo "URL invalide"
+                return 1
+            fi
+            ;;
+        3)
+            # Depuis dossier Images
+            local pics_dirs=("$HOME/Pictures" "$HOME/Images" "$HOME/Desktop" "$HOME/Bureau")
+            echo "Images trouvées :"
+            local i=1
+            declare -a found_images
+            
+            for dir in "${pics_dirs[@]}"; do
+                if [ -d "$dir" ]; then
+                    while IFS= read -r -d $'\0' img; do
+                        echo "$i. $(basename "$img") ($(dirname "$img"))"
+                        found_images[$i]="$img"
+                        ((i++))
+                    done < <(find "$dir" -maxdepth 2 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" -o -iname "*.bmp" \) -print0 2>/dev/null | head -20)
+                fi
+            done
+            
+            if [ $i -eq 1 ]; then
+                echo "Aucune image trouvée dans les dossiers courants"
+                return 1
+            fi
+            
+            read -p "Choisissez une image [1-$((i-1))]: " img_choice
+            if [[ "$img_choice" =~ ^[0-9]+$ ]] && ((img_choice >= 1 && img_choice < i)); then
+                source_image="${found_images[$img_choice]}"
+            else
+                echo "Choix invalide"
+                return 1
+            fi
+            ;;
+        *)
+            echo "Méthode invalide"
+            return 1
+            ;;
+    esac
+    
+    if [ ! -f "$source_image" ]; then
+        echo "Fichier non trouvé : $source_image"
+        return 1
+    fi
+    
+    # Convertir et copier l'image
+    local img_name="$(basename "$source_image" | sed 's/[^a-zA-Z0-9._-]/_/g')"
+    local dest_original="$FASTFETCH_IMAGES_DIR/$img_name"
+    local dest_converted="$FASTFETCH_LOGOS_DIR/converted_$img_name.png"
+    
+    # Copier l'original
+    cp "$source_image" "$dest_original"
+    
+    # Convertir pour Fastfetch
+    convertir_image_fastfetch "$source_image" "$dest_converted" 60 30
+    
+    echo "Image ajoutée :"
+    echo "- Original : $dest_original"
+    echo "- Converti : $dest_converted"
+    echo "L'image est maintenant disponible dans les options de configuration"
+    
+    # Nettoyer le fichier temporaire si c'était un téléchargement
+    if [[ "$source_image" == "/tmp/fastfetch_"* ]]; then
+        rm -f "$source_image"
+    fi
+}
+
+# Restaurer configuration par défaut
+function restaurer_config_fastfetch() {
+    echo -e "\nRESTAURATION CONFIGURATION FASTFETCH PAR DÉFAUT"
+    
+    # Sauvegarder l'ancienne configuration
+    if [ -f "$FASTFETCH_CONFIG_DIR/config.jsonc" ]; then
+        cp "$FASTFETCH_CONFIG_DIR/config.jsonc" "$FASTFETCH_CONFIG_DIR/config.jsonc.bak.$(date +%s)"
+        echo "Ancienne configuration sauvegardée"
+    fi
+    
+    # Supprimer la configuration personnalisée
+    rm -f "$FASTFETCH_CONFIG_DIR/config.jsonc"
+    rm -f "$FASTFETCH_CONFIG_DIR/random_logo.sh"
+    rm -f "$FASTFETCH_CONFIG_DIR/fastfetch_random.sh"
+    
+    # Retirer l'alias
+    sed -i '/alias fastfetch-random/d' "$HOME/.bashrc" 2>/dev/null
+    sed -i '/alias fastfetch-random/d' "$HOME/.zshrc" 2>/dev/null
+    
+    echo "Configuration par défaut restaurée"
+    echo "Fastfetch utilisera maintenant le logo par défaut du système"
+}
+
 # Interface utilisateur
 function menu_principal() {
     while true; do
-        echo -e "\n BearGrubChanger"
+        echo -e "\nBearGrubChanger - Menu Principal"
         echo "1. Installer tous les thèmes, polices, icônes + GRUB + Plymouth + SDDM"
         echo "2. Changer le thème GRUB"
         echo "3. Appliquer une police pour le menu GRUB"
@@ -1216,6 +1798,8 @@ function menu_principal() {
         echo "9. Ajuster le délai de sélection GRUB"
         echo "10. Fond d'écran animé KDE Plasma (sélection vidéo)"
         echo "11. Thème global"
+        echo "12. Mettre à jour tous les logiciels du système"
+        echo "13. Customiser Fastfetch (logos personnalisés)"
         echo "0. Quitter"
         read -p "Choix : " opt
 
@@ -1239,10 +1823,10 @@ function menu_principal() {
             9) ajuster_delai_grub ;;
             10) activer_fond_anime_kde ;;
             11) appliquer_theme_icones_systeme ;;
-            0) echo "Vzy casse-toi d'là "; exit 0 ;;
+            12) mettre_a_jour_systeme ;;
+            13) customiser_fastfetch ;;
+            0) echo "T'a intéret à étoilé mes repos GitHub et me suivre !"; exit 0 ;;
             *) echo "Option invalide." ;;
         esac
     done
 }
-
-menu_principal
