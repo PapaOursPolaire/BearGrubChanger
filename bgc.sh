@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 168.8, mise à jour le 01/09/2025 - 20:42
+# Version 178.8, mise à jour le 01/09/2025 - 22:16
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -768,7 +768,7 @@ EOF
     echo "- Compatible avec tous les gestionnaires de fenetres"
 }
 
-# Splashscreen KDE avec support GIF optimisé
+# Fonction améliorée pour détecter et appliquer les splashscreens KDE
 function activer_splashscreen_kde() {
     # Vérifier et installer les dépendances Python pour KDE
     echo "Installation des dépendances Python pour KDE..."
@@ -787,33 +787,81 @@ function activer_splashscreen_kde() {
         return 1
     fi
 
-        # Trouver les fichiers splashscreen (GIF prioritaire)
+    # Détecter les thèmes de splashscreen valides (structure contents/)
+    declare -a valid_splashscreens
+    declare -a splash_paths
     declare -a splash_files
-    while IFS= read -r -d $'\0' file; do
-        splash_files+=("$file")
-    done < <(find "$REPO_DIR/splashscreens" -maxdepth 1 -type f \( -iname "*.gif" -o -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) -print0)
+    local i=1
 
-    if [ ${#splash_files[@]} -eq 0 ]; then
-        echo "Aucun splashscreen valide trouvé."
-        echo "Contenu du dossier :"
-        ls -la "$REPO_DIR/splashscreens" 2>/dev/null
+    echo "Détection des splashscreens KDE disponibles..."
+    
+    # Parcourir tous les dossiers dans splashscreens/
+    for splash_dir in "$REPO_DIR/splashscreens"/*; do
+        if [ -d "$splash_dir" ]; then
+            local splash_name=$(basename "$splash_dir")
+            local contents_dir="$splash_dir/contents"
+            
+            # Vérifier la structure requise
+            if [ -d "$contents_dir" ] && [ -f "$contents_dir/Splash.qml" ]; then
+                # Chercher les fichiers multimédias dans contents/
+                local media_files=()
+                
+                # Chercher différents types de fichiers multimédias
+                while IFS= read -r -d $'\0' media_file; do
+                    media_files+=("$(basename "$media_file")")
+                done < <(find "$contents_dir" -maxdepth 1 -type f \( \
+                    -iname "*.gif" -o -iname "*.png" -o -iname "*.jpg" -o \
+                    -iname "*.jpeg" -o -iname "*.mp4" -o -iname "*.webm" \
+                \) -print0 2>/dev/null)
+                
+                if [ ${#media_files[@]} -gt 0 ]; then
+                    echo "$i. $splash_name"
+                    echo "   Structure: contents/Splash.qml + ${#media_files[@]} fichier(s) média"
+                    echo "   Médias: ${media_files[*]}"
+                    
+                    # Vérifier si metadata.desktop existe
+                    if [ -f "$splash_dir/metadata.desktop" ]; then
+                        local theme_name=$(grep "^Name=" "$splash_dir/metadata.desktop" 2>/dev/null | cut -d'=' -f2)
+                        if [ -n "$theme_name" ]; then
+                            echo "   Nom: $theme_name"
+                        fi
+                    fi
+                    
+                    valid_splashscreens[$i]="$splash_name"
+                    splash_paths[$i]="$splash_dir"
+                    splash_files[$i]="${media_files[0]}"  # Premier fichier média trouvé
+                    ((i++))
+                    echo ""
+                fi
+            else
+                echo "Ignoré: $splash_name (structure invalide - manque contents/Splash.qml)"
+            fi
+        fi
+    done
+
+    if [ ${#valid_splashscreens[@]} -eq 0 ]; then
+        echo "Aucun splashscreen KDE valide trouvé dans $REPO_DIR/splashscreens"
+        echo ""
+        echo "Structure attendue pour chaque splashscreen:"
+        echo "nom_du_splashscreen/"
+        echo "├── contents/"
+        echo "│   ├── Splash.qml"
+        echo "│   └── fichier_média.gif (ou .png, .jpg, .mp4, etc.)"
+        echo "└── metadata.desktop (optionnel)"
+        echo ""
+        echo "Note: Les noms de fichiers média peuvent varier, mais Splash.qml est obligatoire"
         return 1
     fi
 
-    echo -e "\nSplashscreens disponibles :"
-    for i in "${!splash_files[@]}"; do
-        echo "$((i+1)). $(basename "${splash_files[$i]}")"
-    done
-
-    read -p "Sélectionnez un splashscreen [1-${#splash_files[@]}] : " choice
-    if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice > ${#splash_files[@]})); then
+    read -p "Sélectionnez un splashscreen [1-$((i-1))]: " choice
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice >= i)); then
         echo "Sélection invalide."
         return 1
     fi
 
-    selected="${splash_files[$((choice-1))]}"
-    selected_name=$(basename "$selected")
-    file_ext="${selected_name##*.}"
+    selected_name="${valid_splashscreens[$choice]}"
+    selected_path="${splash_paths[$choice]}"
+    selected_media="${splash_files[$choice]}"
     
     echo "Application de $selected_name..."
     
@@ -826,15 +874,17 @@ function activer_splashscreen_kde() {
         # Supprimer l'ancien thème s'il existe
         rm -rf "$THEME_DIR"
         
-        # Créer la structure complète du thème
-        mkdir -p "$THEME_DIR/contents/splash"
-        mkdir -p "$THEME_DIR/contents/splash/images"
+        # Copier entièrement le thème sélectionné
+        echo "Copie du thème complet..."
+        cp -r "$selected_path" "$THEME_DIR"
         
-        # Copier l'image avec un nom standard
-        cp "$selected" "$THEME_DIR/contents/splash/images/background.$file_ext"
-        
-        # Créer le fichier metadata.desktop avec le bon nom
-        cat > "$THEME_DIR/metadata.desktop" << 'EOF'
+        # Vérifier et ajuster le fichier metadata.desktop
+        if [ -f "$THEME_DIR/metadata.desktop" ]; then
+            # Modifier l'identifiant du plugin pour éviter les conflits
+            sed -i "s/X-KDE-PluginInfo-Name=.*/X-KDE-PluginInfo-Name=bearsplash/" "$THEME_DIR/metadata.desktop"
+        else
+            # Créer le fichier metadata.desktop s'il n'existe pas
+            cat > "$THEME_DIR/metadata.desktop" << 'EOF'
 [Desktop Entry]
 Name=Bear Splash
 Comment=Custom Bear Splashscreen by PapaOursPolaire
@@ -845,135 +895,17 @@ X-KDE-PluginInfo-License=GPL
 X-KDE-ServiceTypes=Plasma/LookAndFeel
 Type=Service
 EOF
-
-        # Créer le fichier Splash.qml optimisé pour GIF
-        if [[ "$file_ext" == "gif" ]]; then
-            cat > "$THEME_DIR/contents/splash/Splash.qml" << EOF
-import QtQuick 2.5
-
-Rectangle {
-    id: root
-    color: "black"
-    
-    property int stage
-    
-    onStageChanged: {
-        if (stage == 1) {
-            splashImage.visible = true
-        }
-    }
-    
-    AnimatedImage {
-        id: splashImage
-        anchors.fill: parent
-        source: "images/background.$file_ext"
-        fillMode: Image.PreserveAspectCrop
-        smooth: true
-        visible: false
-        playing: true
-        
-        PropertyAnimation on opacity {
-            running: splashImage.visible
-            from: 0
-            to: 1
-            duration: 500
-            easing.type: Easing.InOutQuad
-        }
-    }
-    
-    Rectangle {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 80
-        width: 200
-        height: 4
-        color: "rgba(255,255,255,0.2)"
-        radius: 2
-        
-        Rectangle {
-            id: progressBar
-            anchors.left: parent.left
-            anchors.top: parent.top
-            height: parent.height
-            width: 0
-            color: "white"
-            radius: parent.radius
-            
-            PropertyAnimation on width {
-                running: splashImage.visible
-                from: 0
-                to: parent.width
-                duration: 3000
-                easing.type: Easing.OutCubic
-            }
-        }
-    }
-}
-EOF
-        else
-            cat > "$THEME_DIR/contents/splash/Splash.qml" << EOF
-import QtQuick 2.5
-
-Rectangle {
-    id: root
-    color: "black"
-    
-    property int stage
-    
-    onStageChanged: {
-        if (stage == 1) {
-            introAnimation.running = true
-        }
-    }
-    
-    Image {
-        id: backgroundImage
-        anchors.fill: parent
-        source: "images/background.$file_ext"
-        fillMode: Image.PreserveAspectCrop
-        smooth: true
-        opacity: 0
-        
-        PropertyAnimation on opacity {
-            id: introAnimation
-            running: false
-            from: 0
-            to: 1
-            duration: 800
-            easing.type: Easing.InOutQuad
-        }
-    }
-    
-    Rectangle {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 80
-        width: 200
-        height: 4
-        color: "rgba(255,255,255,0.2)"
-        radius: 2
-        
-        Rectangle {
-            id: progressBar
-            anchors.left: parent.left
-            anchors.top: parent.top
-            height: parent.height
-            width: 0
-            color: "white"
-            radius: parent.radius
-            
-            PropertyAnimation on width {
-                running: introAnimation.running
-                from: 0
-                to: parent.width
-                duration: 2000
-                easing.type: Easing.OutCubic
-            }
-        }
-    }
-}
-EOF
         fi
+
+        # Vérifier que le fichier Splash.qml est présent
+        if [ ! -f "$THEME_DIR/contents/Splash.qml" ]; then
+            echo "Erreur: Splash.qml manquant après copie"
+            return 1
+        fi
+
+        # Détection du type de média principal pour optimisation
+        media_ext="${selected_media##*.}"
+        echo "Type de média détecté: $media_ext"
 
         # Application automatique du thème
         echo "Application automatique du thème..."
@@ -998,12 +930,54 @@ EOF
         kstart plasmashell &
 
         echo "Splashscreen '$selected_name' installé et activé automatiquement!"
+        echo "Fichier média principal: $selected_media"
         echo "Déconnectez-vous et reconnectez-vous pour voir le splashscreen au démarrage"
         
     else
         echo "KDE Plasma n'est pas détecté"
         return 1
     fi
+}
+
+# Fonction helper pour valider la structure d'un splashscreen
+function valider_structure_splashscreen() {
+    local splash_dir="$1"
+    local splash_name=$(basename "$splash_dir")
+    
+    echo "Validation de la structure pour: $splash_name"
+    
+    # Vérifications obligatoires
+    if [ ! -d "$splash_dir/contents" ]; then
+        echo "Dossier contents/ manquant"
+        return 1
+    fi
+    
+    if [ ! -f "$splash_dir/contents/Splash.qml" ]; then
+        echo "Fichier Splash.qml manquant dans contents/"
+        return 1
+    fi
+    
+    # Vérifier la présence de fichiers multimédias
+    local media_count=$(find "$splash_dir/contents" -maxdepth 1 -type f \( \
+        -iname "*.gif" -o -iname "*.png" -o -iname "*.jpg" -o \
+        -iname "*.jpeg" -o -iname "*.mp4" -o -iname "*.webm" \
+    \) | wc -l)
+    
+    if [ $media_count -eq 0 ]; then
+        echo "Aucun fichier média trouvé (recommandé: .gif, .png, .jpg, .mp4)"
+    else
+        echo "$media_count fichier(s) média trouvé(s)"
+    fi
+    
+    # Vérifications optionnelles
+    if [ -f "$splash_dir/metadata.desktop" ]; then
+        echo "metadata.desktop présent"
+    else
+        echo "ℹmetadata.desktop absent (sera créé automatiquement)"
+    fi
+    
+    echo "Structure valide pour $splash_name"
+    return 0
 }
 
 function ajuster_delai_grub() {
