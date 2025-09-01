@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 138.8, mise à jour le 01/09/2025 - 20:07
+# Version 148.8, mise à jour le 01/09/2025 - 20:07
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -807,7 +807,7 @@ function activer_fond_anime_kde() {
     
     # CORRECTION : Boucle while complète et correctement formée
     while IFS= read -r -d $'\0' file; do
-        video_files+=("$file")
+    video_files+=("$file")
     done < <(find "${VIDEOS_DIRS[@]}" "$HOME/Downloads" "$HOME/Téléchargements" "$HOME/Desktop" "$HOME/Bureau" 2>/dev/null -maxdepth 2 -type f \( -iname "*.mp4" -o -iname "*.webm" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv" \) -print0 2>/dev/null | head -20)
     
     if [ ${#video_files[@]} -gt 0 ]; then
