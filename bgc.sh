@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 418.8, mise à jour le 03/09/2025 - 18:03
+# Version 428.8, mise à jour le 03/09/2025 - 18:11
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -3337,43 +3337,36 @@ function integrer_spicetify() {
     if ! command -v spotify >/dev/null; then
         echo "Spotify n'est pas installé. Installation en cours..."
         
-        # Installation selon la distribution
-        if command -v apt >/dev/null; then
-            # Méthode 1: Snap (recommandé)
+        # Essayer d'abord avec le dépôt existant
+        sudo apt update
+        if sudo apt install spotify-client -y 2>/dev/null; then
+            echo "Spotify installé avec succès via le dépôt existant"
+        else
+            echo "Tentative alternative d'installation..."
+            
+            # Méthode alternative: Snap
             if command -v snap >/dev/null; then
                 sudo snap install spotify
-            # Méthode 2: Depuis le dépôt officiel
-            else
-                curl -sS https://download.spotify.com/debian/pubkey_7A3A762FAFD4A51F.gpg | sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
-                echo "deb http://repository.spotify.com stable non-free" | sudo tee /etc/apt/sources.list.d/spotify.list
-                sudo apt update
-                sudo apt install spotify-client -y
-            fi
-            
-        elif command -v pacman >/dev/null; then
-            # Arch Linux - AUR
-            if command -v yay >/dev/null; then
-                yay -S spotify --noconfirm
-            elif command -v paru >/dev/null; then
-                paru -S spotify --noconfirm
-            else
-                echo "Installez yay ou paru pour installer Spotify depuis AUR"
-                return 1
-            fi
-            
-        elif command -v dnf >/dev/null; then
-            # Fedora - Flatpak
-            if command -v flatpak >/dev/null; then
+            # Méthode alternative: Flatpak
+            elif command -v flatpak >/dev/null; then
                 flatpak install flathub com.spotify.Client -y
             else
-                echo "Installez flatpak pour installer Spotify"
-                return 1
+                # Réinstallation complète du dépôt
+                sudo rm -f /etc/apt/sources.list.d/spotify.list
+                sudo rm -f /etc/apt/trusted.gpg.d/spotify.gpg
+                
+                curl -sS https://download.spotify.com/debian/pubkey_7A3A762FAFD4A51F.gpg | sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
+                echo "deb http://repository.spotify.com stable non-free" | sudo tee /etc/apt/sources.list.d/spotify.list
+                
+                sudo apt update
+                sudo apt install spotify-client -y
             fi
         fi
         
         # Vérifier que l'installation a réussi
         if ! command -v spotify >/dev/null; then
             echo "Échec de l'installation de Spotify"
+            echo "Veuillez installer Spotify manuellement puis relancer cette option"
             return 1
         fi
         
