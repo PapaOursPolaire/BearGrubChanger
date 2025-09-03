@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 398.8, mise à jour le 03/09/2025 - 17:39
+# Version 408.8, mise à jour le 03/09/2025 - 17:45
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -3634,47 +3634,48 @@ function telecharger_site_specifique() {
 }
 
 # Interface utilisateur
+# Interface utilisateur
 menu_principal() {
     while true; do
         echo
         echo "BearGrubChanger - Menu Principal"
 
-        echo " INSTALLATION & MAJ "
+        echo -e "\033[1;34m INSTALLATION & MAJ \033[0m"
         echo "1.  Installer tous les thèmes, polices, icônes + GRUB + Plymouth + SDDM"
         echo "2.  Mettre à jour tous les logiciels du système"
 
-        echo " GESTION GRUB "
+        echo -e "\033[1;34m GESTION GRUB \033[0m"
         echo "3.  Changer le thème GRUB"
         echo "4.  Appliquer une police pour le menu GRUB"
         echo "5.  Remplacer les icônes GRUB"
         echo "6.  Ajuster le délai de sélection GRUB"
 
-        echo " GESTION PLYMOUTH "
+        echo -e "\033[1;34m GESTION PLYMOUTH \033[0m"
         echo "7.  Activer/choisir un thème Plymouth"
 
-        echo " GESTION LOGIN (SDDM/GDM/LightDM) "
+        echo -e "\033[1;34m GESTION LOGIN (SDDM/GDM/LightDM) \033[0m"
         echo "8.  Changer le thème SDDM"
         echo "9.  Changer de gestionnaire de connexion (GDM/SDDM/LightDM)"
 
-        echo " KDE / GNOME "
+        echo -e "\033[1;34m KDE / GNOME \033[0m"
         echo "10. Activer un splashscreen KDE Plasma (GIF supporté)"
         echo "11. Fond d'écran animé KDE Plasma (sélection vidéo)"
-        echo "12. Fonds d’écran dynamiques (jour/nuit)"
-        echo "13. Fonds d’écran météo"
+        echo "12. Fonds d'écran dynamiques (jour/nuit)"
+        echo "13. Fonds d'écran météo"
         echo "14. Wallpaper vidéo avec mpv"
         echo "15. Thème global (icônes, couleurs...)"
         echo "16. Changer le thème GTK/QT système (clair/sombre/auto)"
         echo "17. Modifier la barre des tâches"
         echo "18. Changer le thème du curseur"
 
-        echo " LOCKSCREEN "
+        echo -e "\033[1;34m LOCKSCREEN \033[0m"
         echo "19. Changer le thème de l'écran de verrouillage"
 
-        echo " FASTFETCH "
+        echo -e "\033[1;34m FASTFETCH \033[0m"
         echo "20. Customiser Fastfetch (simple)"
         echo "21. Customiser Fastfetch (avancé, ASCII, images...)"
 
-        echo " SYSTEME "
+        echo -e "\033[1;34m SYSTEME \033[0m"
         echo "22. Changer la police système"
         echo "23. Configurer la disposition clavier au boot"
         echo "24. Configurer un fond sonore de login/boot"
@@ -3682,43 +3683,44 @@ menu_principal() {
         echo "26. Personnaliser le prompt du shell"
         echo "27. Installer NerdFonts"
 
-        echo " TOOLS "
+        echo -e "\033[1;34m TOOLS \033[0m"
         echo "28. Randomiser les thèmes/icônes/fastfetch"
         echo "29. Backup des configurations"
         echo "30. Restauration des configurations"
-        echo "31. Export d’un profil complet"
-        echo "32. Import d’un profil complet"
+        echo "31. Export d'un profil complet"
+        echo "32. Import d'un profil complet"
         echo "33. Nettoyer thèmes/icônes inutilisés"
         echo "34. Message MOTD custom (SSH/TTY)"
         echo "35. Téléchargeur de vidéos universel"
 
-        echo " MUSIQUE "
+        echo -e "\033[1;34m MUSIQUE \033[0m"
         echo "36. Lire une musique locale"
         echo "37. Écouter la radio en streaming"
-        echo "38. Afficher paroles d’un morceau"
+        echo "38. Afficher paroles d'un morceau"
         echo "39. Activer la couleur dynamique selon la musique"
         echo "40. Télécharger musique Spotify/YouTube"
 
-        echo " RESET "
+        echo -e "\033[1;34m RESET \033[0m"
         echo "41. RESET complet (restaurer état par défaut)"
 
-        echo " EXTENSIONS PLYMOUTH "
+        echo -e "\033[1;34m EXTENSIONS PLYMOUTH \033[0m"
         echo "42. Plymouth animé depuis vidéo/GIF"
         echo "43. Prévisualiser le thème Plymouth"
 
-        echo " EXTENSIONS LOGIN (SDDM/LIGHTDM) "
-        echo "44. Ajouter une bannière / un logo sur l’écran de login"
-        echo "45. Activer transparence / flou sur l’écran de login"
-        echo "46. Rotation automatique des fonds d’écran du login"
+        echo -e "\033[1;34m EXTENSIONS LOGIN (SDDM/LIGHTDM) \033[0m"
+        echo "44. Ajouter une bannière / un logo sur l'écran de login"
+        echo "45. Activer transparence / flou sur l'écran de login"
+        echo "46. Rotation automatique des fonds d'écran du login"
         echo "47. Personnaliser LightDM"
 
-        echo " ICONES & RANDOM "
-        echo "48. Mixer plusieurs packs d’icônes"
+        echo -e "\033[1;34m ICONES & RANDOM \033[0m"
+        echo "48. Mixer plusieurs packs d'icônes"
         echo "49. Randomizer complet (thèmes/icônes/Plymouth/GRUB)"
 
-        echo " SPOTIFY "
+        echo -e "\033[1;34m SPOTIFY \033[0m"
         echo "50. Intégration Spicetify (thèmes + extensions)"
 
+        echo -e "\033[1;34m QUITTER \033[0m"
         echo "0.  Quitter"
         read -p "Choix : " opt
 
@@ -3790,9 +3792,8 @@ menu_principal() {
             49) mode_randomizer ;;
             50) integrer_spicetify ;;
 
-            0)  echo "Merci d’utiliser BearGrubChanger !"; exit 0 ;;
+            0)  echo "Merci d'utiliser BearGrubChanger !"; exit 0 ;;
             *)  echo "Option invalide." ;;
-            # AJOUTER TELECHARGEUR DE VIDEOS 
         esac
     done
 }
