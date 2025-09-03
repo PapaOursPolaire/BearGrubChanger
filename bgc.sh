@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 428.8, mise à jour le 03/09/2025 - 18:11
+# Version 438.8, mise à jour le 03/09/2025 - 18:39
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -749,7 +749,7 @@ EOF
         fi
     fi
 
-    echo -e "\n=== CONFIGURATION TERMINEE ==="
+    echo -e "\nCONFIGURATION TERMINEE"
     echo "Theme SDDM custom configure avec succes !"
     echo ""
     echo "Pour voir les changements:"
@@ -3225,31 +3225,596 @@ function telecharger_musique_spotify() {
 }
 
 function customiser_fastfetch_plus() {
+    echo -e "\nCUSTOMISATION AVANCÉE DE FASTFETCH"
+    
+    # Vérifier que Fastfetch est installé
+    installer_fastfetch || return 1
+    
     while true; do
-        echo "=== Fastfetch Plus ==="
+        echo -e "\nOptions Fastfetch Plus:"
         echo "1. Modifier le logo Fastfetch"
-        echo "2. Ajouter des modules (batterie, CPU/GPU, etc.)"
-        echo "3. Couleurs aléatoires pour le logo Fastfetch"
-        echo "0. Retour"
-        read -p "Choix : " opt
-
+        echo "2. Gérer les modules (ajouter/supprimer)"
+        echo "3. Activer couleurs aléatoires pour le logo"
+        echo "4. Aperçu de la configuration actuelle"
+        echo "5. Appliquer la configuration"
+        echo "0. Retour au menu principal"
+        
+        read -p "Votre choix [0-5]: " opt
+        
         case "$opt" in
-            1) echo "Modification du logo..." ;;
-            2) echo "Ajout de modules..." ;;
-            3)
-                echo "Activation couleurs aléatoires..."
-                cfg="$HOME/.config/fastfetch/config.conf"
-                mkdir -p "$(dirname "$cfg")"
-                if ! grep -q "random_color=" "$cfg" 2>/dev/null; then
-                    echo "random_color=true" >> "$cfg"
-                else
-                    sed -i 's/random_color=.*/random_color=true/' "$cfg"
-                fi
-                ;;
+            1) modifier_logo_fastfetch ;;
+            2) gerer_modules_fastfetch ;;
+            3) activer_couleurs_aleatoires ;;
+            4) afficher_configuration_actuelle ;;
+            5) appliquer_configuration_fastfetch ;;
             0) break ;;
             *) echo "Option invalide." ;;
         esac
     done
+}
+
+function modifier_logo_fastfetch() {
+    echo -e "\nMODIFICATION DU LOGO FASTFETCH"
+    echo "Types de logo disponibles:"
+    echo "1. Logo d'un autre OS (distro)"
+    echo "2. Pokémon aléatoire à chaque lancement"
+    echo "3. Image personnalisée"
+    echo "4. Image convertie en ASCII art"
+    echo "5. ASCII art personnalisé"
+    echo "6. Annuler"
+    
+    read -p "Votre choix [1-6]: " logo_choice
+    
+    case "$logo_choice" in
+        1) choisir_logo_os ;;
+        2) configurer_pokemon_aleatoire ;;
+        3) choisir_image_personnalisee ;;
+        4) convertir_image_ascii ;;
+        5) saisir_ascii_personnalise ;;
+        6) return ;;
+        *) echo "Choix invalide"; return 1 ;;
+    esac
+    
+    echo "Logo configuré avec succès!"
+}
+
+function choisir_logo_os() {
+    echo -e "\nLOGOS D'OS DISPONIBLES:"
+    echo "1. Arch Linux"
+    echo "2. Ubuntu"
+    echo "3. Debian"
+    echo "4. Fedora"
+    echo "5. Windows"
+    echo "6. macOS"
+    echo "7. Linux Mint"
+    echo "8. Manjaro"
+    echo "9. Pop!_OS"
+    echo "10. Autre (saisir manuellement)"
+    
+    read -p "Choisissez un OS [1-10]: " os_choice
+    
+    case "$os_choice" in
+        1) logo_name="arch" ;;
+        2) logo_name="ubuntu" ;;
+        3) logo_name="debian" ;;
+        4) logo_name="fedora" ;;
+        5) logo_name="windows" ;;
+        6) logo_name="macos" ;;
+        7) logo_name="mint" ;;
+        8) logo_name="manjaro" ;;
+        9) logo_name="popos" ;;
+        10) 
+            read -p "Nom du logo Fastfetch (ex: alpine, gentoo, nixos): " logo_name
+            ;;
+        *) echo "Choix invalide"; return 1 ;;
+    esac
+    
+    # Configurer le logo dans la configuration
+    mkdir -p "$FASTFETCH_CONFIG_DIR"
+    cat > "$FASTFETCH_CONFIG_DIR/config.jsonc" <<EOF
+{
+    "logo": {
+        "type": "$logo_name",
+        "width": 60,
+        "height": 30,
+        "padding": {
+            "top": 1,
+            "left": 2
+        }
+    }
+}
+EOF
+}
+
+function configurer_pokemon_aleatoire() {
+    echo -e "\nPOKÉMON ALÉATOIRE À CHAQUE LANCEMENT"
+    
+    # Cloner le dépôt Pokémon si nécessaire
+    POKEMON_DIR="/tmp/pokemon-terminal"
+    if [ ! -d "$POKEMON_DIR" ]; then
+        echo "Téléchargement des sprites Pokémon..."
+        git clone --depth=1 https://github.com/LazoCoder/Pokemon-Terminal.git "$POKEMON_DIR" 2>/dev/null || {
+            echo "Échec du téléchargement. Utilisation des sprites locaux si disponibles."
+        }
+    fi
+    
+    # Créer le script de sélection aléatoire
+    cat > "$FASTFETCH_CONFIG_DIR/pokemon_random.sh" <<'EOF'
+#!/bin/bash
+
+POKEMON_DIR="/tmp/pokemon-terminal"
+CONFIG_FILE="$HOME/.config/fastfetch/config.jsonc"
+
+# Liste de tous les Pokémon disponibles (générations 1-8)
+declare -a pokemon_list=(
+    "bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon" "charizard"
+    "squirtle" "wartortle" "blastoise" "caterpie" "metapod" "butterfree"
+    "weedle" "kakuna" "beedrill" "pidgey" "pidgeotto" "pidgeot"
+    "rattata" "raticate" "spearow" "fearow" "ekans" "arbok"
+    "pikachu" "raichu" "sandshrew" "sandslash" "nidoran-f" "nidorina"
+    "nidoqueen" "nidoran-m" "nidorino" "nidoking" "clefairy" "clefable"
+    "vulpix" "ninetales" "jigglypuff" "wigglytuff" "zubat" "golbat"
+    "oddish" "gloom" "vileplume" "paras" "parasect" "venonat"
+    "venomoth" "diglett" "dugtrio" "meowth" "persian" "psyduck"
+    "golduck" "mankey" "primeape" "growlithe" "arcanine" "poliwag"
+    "poliwhirl" "poliwrath" "abra" "kadabra" "alakazam" "machop"
+    "machoke" "machamp" "bellsprout" "weepinbell" "victreebel" "tentacool"
+    "tentacruel" "geodude" "graveler" "golem" "ponyta" "rapidash"
+    "slowpoke" "slowbro" "magnemite" "magneton" "farfetchd" "doduo"
+    "dodrio" "seel" "dewgong" "grimer" "muk" "shellder"
+    "cloyster" "gastly" "haunter" "gengar" "onix" "drowzee"
+    "hypno" "krabby" "kingler" "voltorb" "electrode" "exeggcute"
+    "exeggutor" "cubone" "marowak" "hitmonlee" "hitmonchan" "lickitung"
+    "koffing" "weezing" "rhyhorn" "rhydon" "chansey" "tangela"
+    "kangaskhan" "horsea" "seadra" "goldeen" "seaking" "staryu"
+    "starmie" "mr-mime" "scyther" "jynx" "electabuzz" "magmar"
+    "pinsir" "tauros" "magikarp" "gyarados" "lapras" "ditto"
+    "eevee" "vaporeon" "jolteon" "flareon" "porygon" "omanyte"
+    "omastar" "kabuto" "kabutops" "aerodactyl" "snorlax" "articuno"
+    "zapdos" "mewtwo" "mew"
+)
+
+# Sélectionner un Pokémon aléatoire
+random_pokemon="${pokemon_list[$RANDOM % ${#pokemon_list[@]}]}"
+
+# Créer la configuration avec le Pokémon aléatoire
+cat > "$CONFIG_FILE" <<FASTFETCH_CONFIG
+{
+    "logo": {
+        "type": "$random_pokemon",
+        "width": 60,
+        "height": 30,
+        "padding": {
+            "top": 1,
+            "left": 2
+        }
+    },
+    "display": {
+        "color": {
+            "keys": "blue",
+            "title": "yellow"
+        }
+    }
+}
+FASTFETCH_CONFIG
+
+echo "Pokémon sélectionné: $random_pokemon"
+EOF
+    
+    chmod +x "$FASTFETCH_CONFIG_DIR/pokemon_random.sh"
+    
+    # Créer un alias pour lancer avec Pokémon aléatoire
+    echo "alias fastfetch-pokemon='$FASTFETCH_CONFIG_DIR/pokemon_random.sh && fastfetch'" >> ~/.bashrc
+    echo "Alias créé: fastfetch-pokemon"
+    
+    # Test immédiat
+    "$FASTFETCH_CONFIG_DIR/pokemon_random.sh"
+    fastfetch
+}
+
+function choisir_image_personnalisee() {
+    echo -e "\nIMAGE PERSONNALISÉE"
+    echo "Sélectionnez une image pour Fastfetch:"
+    
+    # Ouvrir l'explorateur de fichiers
+    image_path=$(selectionner_fichier_interactif "$HOME" "*.png *.jpg *.jpeg *.gif" "Sélectionnez une image")
+    
+    if [ -z "$image_path" ] || [ ! -f "$image_path" ]; then
+        echo "Aucune image sélectionnée ou fichier invalide"
+        return 1
+    fi
+    
+    # Convertir l'image pour Fastfetch
+    mkdir -p "$FASTFETCH_LOGOS_DIR"
+    output_image="$FASTFETCH_LOGOS_DIR/custom_$(date +%s).png"
+    
+    convertir_image_fastfetch "$image_path" "$output_image" 60 30
+    
+    # Configurer Fastfetch pour utiliser l'image
+    mkdir -p "$FASTFETCH_CONFIG_DIR"
+    cat > "$FASTFETCH_CONFIG_DIR/config.jsonc" <<EOF
+{
+    "logo": {
+        "source": "$output_image",
+        "width": 60,
+        "height": 30,
+        "padding": {
+            "top": 1,
+            "left": 2
+        }
+    }
+}
+EOF
+    
+    echo "Image configurée: $(basename "$output_image")"
+}
+
+function convertir_image_ascii() {
+    echo -e "\nCONVERSION IMAGE VERS ASCII ART"
+    
+    # Sélectionner l'image
+    image_path=$(selectionner_fichier_interactif "$HOME" "*.png *.jpg *.jpeg" "Sélectionnez une image à convertir")
+    
+    if [ -z "$image_path" ] || [ ! -f "$image_path" ]; then
+        echo "Aucune image sélectionnée"
+        return 1
+    fi
+    
+    # Vérifier et installer ImageMagick si nécessaire
+    if ! command -v convert >/dev/null; then
+        echo "Installation d'ImageMagick..."
+        sudo apt install imagemagick -y || sudo pacman -S imagemagick --noconfirm || sudo dnf install ImageMagick -y
+    fi
+    
+    # Convertir l'image en ASCII art
+    echo "Conversion en cours..."
+    ascii_art=$(convert "$image_path" -resize 60x30 -colors 16 -define txt:compliance=SVG txt:- 2>/dev/null | \
+                grep -Eo '#[0-9A-F]{6}' | \
+                awk '{printf "\\033[38;2;%d;%d;%dm█\\033[0m", \
+                strtonum("0x" substr($1,2,2)), \
+                strtonum("0x" substr($1,4,2)), \
+                strtonum("0x" substr($1,6,2))}')
+    
+    # Sauvegarder l'ASCII art
+    mkdir -p "$FASTFETCH_CONFIG_DIR"
+    echo "$ascii_art" > "$FASTFETCH_CONFIG_DIR/ascii_art.txt"
+    
+    # Configurer Fastfetch
+    cat > "$FASTFETCH_CONFIG_DIR/config.jsonc" <<EOF
+{
+    "logo": {
+        "type": "ascii",
+        "source": "$FASTFETCH_CONFIG_DIR/ascii_art.txt",
+        "width": 60,
+        "height": 30,
+        "padding": {
+            "top": 1,
+            "left": 2
+        }
+    }
+}
+EOF
+    
+    echo "Image convertie en ASCII art avec succès!"
+}
+
+function saisir_ascii_personnalise() {
+    echo -e "\nASCII ART PERSONNALISÉ"
+    echo "Collez votre ASCII art (Ctrl+D pour terminer):"
+    echo "Note: Utilisez des caractères ASCII standard pour de meilleurs résultats"
+    
+    # Lire l'ASCII art multiligne
+    ascii_art=$(cat)
+    
+    if [ -z "$ascii_art" ]; then
+        echo "Aucun ASCII art saisi"
+        return 1
+    fi
+    
+    # Sauvegarder l'ASCII art
+    mkdir -p "$FASTFETCH_CONFIG_DIR"
+    echo "$ascii_art" > "$FASTFETCH_CONFIG_DIR/custom_ascii.txt"
+    
+    # Configurer Fastfetch
+    cat > "$FASTFETCH_CONFIG_DIR/config.jsonc" <<EOF
+{
+    "logo": {
+        "type": "ascii",
+        "source": "$FASTFETCH_CONFIG_DIR/custom_ascii.txt",
+        "width": 60,
+        "height": 30,
+        "padding": {
+            "top": 1,
+            "left": 2
+        }
+    }
+}
+EOF
+    
+    echo "ASCII art personnalisé configuré avec succès!"
+}
+
+function gerer_modules_fastfetch() {
+    echo -e "\nGESTION DES MODULES FASTFETCH"
+    
+    # Modules disponibles dans Fastfetch
+    declare -a all_modules=(
+        "title" "separator" "os" "host" "kernel" "uptime" "packages"
+        "shell" "display" "de" "wm" "wmtheme" "theme" "icons" "font"
+        "cursor" "terminal" "terminalfont" "cpu" "gpu" "memory" "disk"
+        "localip" "battery" "locale" "break" "colors" "publicip" "weather"
+        "song" "player" "media" "datetime" "datetimecustom" "custom"
+    )
+    
+    # Afficher les modules actuels
+    echo "Modules actuellement configurés:"
+    if [ -f "$FASTFETCH_CONFIG_DIR/config.jsonc" ]; then
+        modules_line=$(grep -A 20 '"modules":' "$FASTFETCH_CONFIG_DIR/config.jsonc" | \
+                     grep -E '"[a-z]+"' | tr -d '",[]' | xargs)
+        echo "$modules_line"
+    else
+        echo "Aucune configuration trouvée, utilisation des modules par défaut"
+    fi
+    
+    echo -e "\nModules disponibles:"
+    for i in "${!all_modules[@]}"; do
+        printf "%2d. %-15s" $((i+1)) "${all_modules[$i]}"
+        [ $(((i+1) % 4)) -eq 0 ] && echo
+    done
+    echo
+    
+    # Options de gestion
+    echo "Options:"
+    echo "1. Supprimer des modules"
+    echo "2. Ajouter des modules"
+    echo "3. Réinitialiser aux modules par défaut"
+    echo "4. Annuler"
+    
+    read -p "Votre choix [1-4]: " manage_choice
+    
+    case "$manage_choice" in
+        1) supprimer_modules ;;
+        2) ajouter_modules ;;
+        3) reinitialiser_modules ;;
+        4) return ;;
+        *) echo "Choix invalide"; return 1 ;;
+    esac
+}
+
+function supprimer_modules() {
+    echo -e "\nSUPPRESSION DE MODULES"
+    
+    # Lire les modules actuels
+    current_modules=()
+    if [ -f "$FASTFETCH_CONFIG_DIR/config.jsonc" ]; then
+        current_modules=($(grep -A 20 '"modules":' "$FASTFETCH_CONFIG_DIR/config.jsonc" | \
+                         grep -E '"[a-z]+"' | tr -d '",[]'))
+    fi
+    
+    if [ ${#current_modules[@]} -eq 0 ]; then
+        echo "Aucun module configuré"
+        return 1
+    fi
+    
+    echo "Modules actuels:"
+    for i in "${!current_modules[@]}"; do
+        echo "$((i+1)). ${current_modules[$i]}"
+    done
+    
+    read -p "Numéros des modules à supprimer (séparés par des espaces): " modules_to_remove
+    
+    # Filtrer les modules
+    new_modules=()
+    for i in "${!current_modules[@]}"; do
+        if [[ ! " $modules_to_remove " == *" $((i+1)) "* ]]; then
+            new_modules+=("${current_modules[$i]}")
+        fi
+    done
+    
+    # Mettre à jour la configuration
+    update_modules_config "${new_modules[@]}"
+    echo "Modules supprimés avec succès!"
+}
+
+function ajouter_modules() {
+    echo -e "\nAJOUT DE MODULES"
+    
+    # Modules disponibles
+    declare -a all_modules=(
+        "title" "separator" "os" "host" "kernel" "uptime" "packages"
+        "shell" "display" "de" "wm" "wmtheme" "theme" "icons" "font"
+        "cursor" "terminal" "terminalfont" "cpu" "gpu" "memory" "disk"
+        "localip" "battery" "locale" "break" "colors" "publicip" "weather"
+        "song" "player" "media" "datetime" "datetimecustom" "custom"
+    )
+    
+    # Lire les modules actuels
+    current_modules=()
+    if [ -f "$FASTFETCH_CONFIG_DIR/config.jsonc" ]; then
+        current_modules=($(grep -A 20 '"modules":' "$FASTFETCH_CONFIG_DIR/config.jsonc" | \
+                         grep -E '"[a-z]+"' | tr -d '",[]'))
+    fi
+    
+    echo "Modules disponibles:"
+    for i in "${!all_modules[@]}"; do
+        # Vérifier si le module est déjà présent
+        present=""
+        for module in "${current_modules[@]}"; do
+            if [ "$module" = "${all_modules[$i]}" ]; then
+                present=" (déjà présent)"
+                break
+            fi
+        done
+        printf "%2d. %-15s%s\n" $((i+1)) "${all_modules[$i]}" "$present"
+    done
+    
+    read -p "Numéros des modules à ajouter (séparés par des espaces): " modules_to_add
+    
+    # Ajouter les nouveaux modules
+    new_modules=("${current_modules[@]}")
+    for num in $modules_to_add; do
+        if [ "$num" -ge 1 ] && [ "$num" -le ${#all_modules[@]} ]; then
+            module_to_add="${all_modules[$((num-1))]}"
+            
+            # Vérifier si le module n'est pas déjà présent
+            already_present=0
+            for module in "${new_modules[@]}"; do
+                if [ "$module" = "$module_to_add" ]; then
+                    already_present=1
+                    break
+                fi
+            done
+            
+            if [ "$already_present" -eq 0 ]; then
+                new_modules+=("$module_to_add")
+                echo "Ajout: $module_to_add"
+            else
+                echo "Module déjà présent: $module_to_add"
+            fi
+        fi
+    done
+    
+    # Mettre à jour la configuration
+    update_modules_config "${new_modules[@]}"
+    echo "Modules ajoutés avec succès!"
+}
+
+function reinitialiser_modules() {
+    echo -e "\nRÉINITIALISATION DES MODULES"
+    
+    # Modules par défaut de Fastfetch
+    declare -a default_modules=(
+        "title" "separator" "os" "host" "kernel" "uptime" "packages"
+        "shell" "display" "de" "wm" "wmtheme" "theme" "icons" "font"
+        "cursor" "terminal" "terminalfont" "cpu" "gpu" "memory" "disk"
+        "localip" "battery" "locale" "break" "colors"
+    )
+    
+    update_modules_config "${default_modules[@]}"
+    echo "Modules réinitialisés aux valeurs par défaut!"
+}
+
+function update_modules_config() {
+    local modules=("$@")
+    
+    # Créer ou mettre à jour le fichier de configuration
+    mkdir -p "$FASTFETCH_CONFIG_DIR"
+    
+    if [ -f "$FASTFETCH_CONFIG_DIR/config.jsonc" ]; then
+        # Conserver les autres paramètres et mettre à jour seulement les modules
+        temp_file=$(mktemp)
+        grep -v '"modules":' "$FASTFETCH_CONFIG_DIR/config.jsonc" | \
+        grep -v '^ *\[$' | grep -v '^ *\]$' > "$temp_file"
+        
+        # Ajouter les nouveaux modules
+        echo '    "modules": [' >> "$temp_file"
+        for i in "${!modules[@]}"; do
+            if [ $i -eq $(( ${#modules[@]} - 1 )) ]; then
+                echo "        \"${modules[$i]}\"" >> "$temp_file"
+            else
+                echo "        \"${modules[$i]}\"," >> "$temp_file"
+            fi
+        done
+        echo "    ]" >> "$temp_file"
+        
+        mv "$temp_file" "$FASTFETCH_CONFIG_DIR/config.jsonc"
+    else
+        # Créer une nouvelle configuration
+        cat > "$FASTFETCH_CONFIG_DIR/config.jsonc" <<EOF
+{
+    "logo": {
+        "type": "auto",
+        "width": 60,
+        "height": 30
+    },
+    "modules": [
+EOF
+        
+        for i in "${!modules[@]}"; do
+            if [ $i -eq $(( ${#modules[@]} - 1 )) ]; then
+                echo "        \"${modules[$i]}\"" >> "$FASTFETCH_CONFIG_DIR/config.jsonc"
+            else
+                echo "        \"${modules[$i]}\"," >> "$FASTFETCH_CONFIG_DIR/config.jsonc"
+            fi
+        done
+        
+        cat >> "$FASTFETCH_CONFIG_DIR/config.jsonc" <<EOF
+    ]
+}
+EOF
+    fi
+}
+
+function activer_couleurs_aleatoires() {
+    echo -e "\nCOULEURS ALÉATOIRES POUR LE LOGO"
+    
+    mkdir -p "$FASTFETCH_CONFIG_DIR"
+    
+    # Lire la configuration actuelle ou créer une nouvelle
+    if [ -f "$FASTFETCH_CONFIG_DIR/config.jsonc" ]; then
+        # Ajouter la configuration des couleurs aléatoires
+        if ! grep -q "randomColor" "$FASTFETCH_CONFIG_DIR/config.jsonc"; then
+            sed -i '/"logo": {/a \        "randomColor": true,' "$FASTFETCH_CONFIG_DIR/config.jsonc"
+        else
+            sed -i 's/"randomColor": *[a-z]*/"randomColor": true/' "$FASTFETCH_CONFIG_DIR/config.jsonc"
+        fi
+    else
+        # Créer une nouvelle configuration
+        cat > "$FASTFETCH_CONFIG_DIR/config.jsonc" <<EOF
+{
+    "logo": {
+        "type": "auto",
+        "width": 60,
+        "height": 30,
+        "randomColor": true,
+        "padding": {
+            "top": 1,
+            "left": 2
+        }
+    }
+}
+EOF
+    fi
+    
+    echo "Couleurs aléatoires activées pour le logo!"
+    echo "Le logo changera de couleur à chaque lancement de Fastfetch"
+}
+
+function afficher_configuration_actuelle() {
+    echo -e "\nCONFIGURATION ACTUELLE FASTFETCH"
+    
+    if [ -f "$FASTFETCH_CONFIG_DIR/config.jsonc" ]; then
+        echo "Fichier de configuration: $FASTFETCH_CONFIG_DIR/config.jsonc"
+        echo "Contenu:"
+        cat "$FASTFETCH_CONFIG_DIR/config.jsonc" | head -20
+        echo "..."
+    else
+        echo "Aucune configuration personnalisée trouvée"
+        echo "Fastfetch utilisera sa configuration par défaut"
+    fi
+    
+    # Test rapide
+    echo -e "\nAperçu:"
+    fastfetch --config "$FASTFETCH_CONFIG_DIR/config.jsonc" 2>/dev/null || \
+    echo "Utilisez 'fastfetch' pour voir la configuration actuelle"
+}
+
+function appliquer_configuration_fastfetch() {
+    echo -e "\nAPPLICATION DE LA CONFIGURATION"
+    
+    if [ -f "$FASTFETCH_CONFIG_DIR/config.jsonc" ]; then
+        echo "Configuration appliquée avec succès!"
+        echo "Test:"
+        fastfetch --config "$FASTFETCH_CONFIG_DIR/config.jsonc"
+    else
+        echo "Aucune configuration à appliquer"
+        echo "Utilisation de la configuration par défaut:"
+        fastfetch
+    fi
+    
+    echo -e "\nPour utiliser cette configuration automatiquement:"
+    echo "Ajoutez cette ligne à votre ~/.bashrc ou ~/.zshrc:"
+    echo "alias ff='fastfetch --config \"$FASTFETCH_CONFIG_DIR/config.jsonc\"'"
 }
 
 function personnaliser_lightdm() {
