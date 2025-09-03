@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 178.8, mise à jour le 01/09/2025 - 22:16
+# Version 378.8, mise à jour le 02/09/2025 - 22
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -2220,50 +2220,1005 @@ function restaurer_config_fastfetch() {
     echo "Fastfetch utilisera maintenant le logo par défaut du système"
 }
 
-# Interface utilisateur
-function menu_principal() {
+function configurer_lockscreen() {
+    echo -e "\nCONFIGURATION DU LOCKSCREEN (VERROUILLAGE DE SESSION)"
+    
+    if pgrep -x "plasmashell" >/dev/null; then
+        echo "Environnement KDE Plasma détecté"
+        echo "Options disponibles :"
+        echo "1. Image fixe"
+        echo "2. Diaporama d'images"
+        echo "3. Vidéo (expérimental)"
+        read -p "Votre choix [1-3] : " lock_choice
+
+        case "$lock_choice" in
+            1)
+                img=$(selectionner_fichier_interactif "$HOME/Pictures" "*.jpg *.png" "Choisissez une image pour l'écran de verrouillage")
+                [ -n "$img" ] && qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+                    lockscreen = lockScreen;
+                    lockscreen.background = 'file://$img';
+                " && echo "Image appliquée au lockscreen."
+                ;;
+            2)
+                dir=$(selectionner_dossier_interactif "$HOME/Pictures" "Choisissez un dossier d'images")
+                [ -n "$dir" ] && kwriteconfig5 --file kscreenlockerrc --group Greeter --key Image "$dir" && \
+                    kwriteconfig5 --file kscreenlockerrc --group Greeter --key SlideShow "$dir" && \
+                    echo "Diaporama appliqué au lockscreen."
+                ;;
+            3)
+                echo "Mode vidéo en cours de test (nécessite `sddm-greeter` modifié ou un script externe)."
+                ;;
+        esac
+
+    elif pgrep -x "gnome-shell" >/dev/null; then
+        echo "Environnement GNOME détecté"
+        img=$(selectionner_fichier_interactif "$HOME/Pictures" "*.jpg *.png" "Choisissez une image pour le lockscreen")
+        [ -n "$img" ] && gsettings set org.gnome.desktop.screensaver picture-uri "file://$img" && \
+            echo "Image appliquée au lockscreen GNOME."
+    else
+        echo "Environnement non reconnu. Configurez manuellement le lockscreen."
+    fi
+}
+
+function configurer_barre_taches() {
+    echo -e "\nCONFIGURATION DE LA BARRE DES TÂCHES"
+
+    if pgrep -x "plasmashell" >/dev/null; then
+        echo "KDE Plasma détecté"
+        echo "Options :"
+        echo "1. Pleine largeur en bas"
+        echo "2. Taille réduite et centrée"
+        echo "3. Couleur personnalisée + transparence"
+        read -p "Votre choix [1-3] : " task_choice
+
+        case "$task_choice" in
+            1)
+                qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+                    var panel = panels()[0];
+                    panel.location = 'bottom';
+                    panel.alignment = 'fill';
+                "
+                ;;
+            2)
+                qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+                    var panel = panels()[0];
+                    panel.alignment = 'center';
+                    panel.height = 36;
+                "
+                ;;
+            3)
+                echo "Application d’un style personnalisé..."
+                kwriteconfig5 --file plasmarc --group Theme --key backgroundColor "#55000055"
+                kquitapp5 plasmashell && kstart plasmashell &
+                ;;
+        esac
+
+    elif pgrep -x "gnome-shell" >/dev/null; then
+        echo "GNOME détecté : personnalisation via `gnome-extensions` (Dash to Dock / Dash to Panel)."
+        echo "Activez et configurez via l’outil `gnome-tweaks`."
+    else
+        echo "Environnement non supporté automatiquement."
+    fi
+}
+
+function customiser_fastfetch_plus() {
+    echo -e "\nCUSTOMISATION AVANCÉE DE FASTFETCH"
+    installer_fastfetch || return 1
+    mkdir -p "$FASTFETCH_CONFIG_DIR" "$FASTFETCH_LOGOS_DIR"
+
+    echo "Options :"
+    echo "1. Logo d'une autre distro Arch (depuis repo GitHub)"
+    echo "2. ASCII/ANSI art (Pokémon, perso, etc.)"
+    echo "3. Image locale"
+    read -p "Choix [1-3] : " ff_choice
+
+    case "$ff_choice" in
+        1)
+            echo "Téléchargement de logos Arch alternatifs..."
+            git clone https://github.com/adi1090x/termux-style /tmp/ff-logos --depth=1
+            cp /tmp/ff-logos/ascii/* "$FASTFETCH_LOGOS_DIR/"
+            echo "Logos importés. Configurez via customiser_fastfetch."
+            ;;
+        2)
+            echo "Téléchargement d’ASCII Pokémon..."
+            git clone https://github.com/borntyping/pokemon-terminal-art /tmp/ff-pokemon --depth=1
+            cp /tmp/ff-pokemon/ascii/* "$FASTFETCH_LOGOS_DIR/"
+            echo "Pokémon ASCII ajoutés !"
+            ;;
+        3)
+            img=$(selectionner_fichier_interactif "$HOME/Pictures" "*.jpg *.png" "Sélectionnez une image")
+            [ -n "$img" ] && convertir_image_fastfetch "$img" "$FASTFETCH_LOGOS_DIR/custom.png" 60 30
+            ;;
+    esac
+}
+
+function basculer_theme_systeme() {
+    echo -e "\nCHANGEMENT DU THÈME CLAIR/SOMBRE"
+
+    echo "1. Forcer mode clair"
+    echo "2. Forcer mode sombre"
+    echo "3. Basculer automatiquement selon l'heure (7h–19h clair, sinon sombre)"
+    read -p "Votre choix [1-3] : " theme_choice
+
+    case "$theme_choice" in
+        1) mode="light" ;;
+        2) mode="dark" ;;
+        3)
+            hour=$(date +%H)
+            if ((hour >= 7 && hour < 19)); then mode="light"; else mode="dark"; fi
+            ;;
+        *) echo "Choix invalide"; return 1 ;;
+    esac
+
+    if pgrep -x "plasmashell" >/dev/null; then
+        echo "KDE Plasma détecté"
+        kwriteconfig5 --file kdeglobals --group General --key ColorScheme "Breeze${mode^}"
+        qdbus org.kde.KWin /KWin reconfigure
+    elif pgrep -x "gnome-shell" >/dev/null; then
+        echo "GNOME détecté"
+        gsettings set org.gnome.desktop.interface color-scheme "prefer-$mode"
+    else
+        echo "Environnement non reconnu. Appliquez manuellement."
+    fi
+
+    echo "Mode $mode appliqué."
+}
+
+function configurer_clavier_boot() {
+    echo -e "\nCONFIGURATION DE LA DISPOSITION CLAVIER AU BOOT"
+
+    echo "Exemples : fr, us, de, es, ru, jp..."
+    read -p "Entrez le code langue du clavier désiré : " layout
+
+    if [ -z "$layout" ]; then
+        echo "Disposition invalide."
+        return 1
+    fi
+
+    # Pour la console (avant login)
+    sudo localectl set-keymap "$layout"
+
+    # Pour X11/Wayland
+    sudo localectl set-x11-keymap "$layout"
+
+    echo "Disposition clavier '$layout' configurée pour le boot."
+}
+
+function randomiser_personnalisation() {
+    echo -e "\nRANDOMISATION DES THÈMES AU DÉMARRAGE"
+
+    # Random GRUB
+    themes=("$THEMES_DIR"/*)
+    rand_theme="${themes[$RANDOM % ${#themes[@]}]}"
+    sudo sed -i '/^GRUB_THEME=/d' "$GRUB_FILE"
+    echo "GRUB_THEME=\"$rand_theme/theme.txt\"" | sudo tee -a "$GRUB_FILE" >/dev/null
+    sudo update-grub >/dev/null 2>&1
+
+    # Random Plymouth
+    if [ -d "$REPO_DIR/plymouth" ]; then
+        plym=("$REPO_DIR/plymouth"/*)
+        rand_plym=$(basename "${plym[$RANDOM % ${#plym[@]}]}")
+        sudo plymouth-set-default-theme "$rand_plym" >/dev/null 2>&1 || true
+    fi
+
+    # Random Fastfetch logo
+    if [ -d "$FASTFETCH_LOGOS_DIR" ]; then
+        logos=("$FASTFETCH_LOGOS_DIR"/*)
+        rand_logo="${logos[$RANDOM % ${#logos[@]}]}"
+        cat > "$FASTFETCH_CONFIG_DIR/config.jsonc" <<EOF
+{
+    "logo": { "source": "$rand_logo", "width": 60, "height": 30 }
+}
+EOF
+    fi
+
+    echo "Randomisation appliquée (GRUB, Plymouth, Fastfetch)."
+}
+
+function reset_personnalisation() {
+    echo -e "\nRESET COMPLET DES PERSONNALISATIONS"
+    read -p "Voulez-vous vraiment réinitialiser toutes les configurations ? [y/N] : " confirm
+
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo "Annulé."
+        return 0
+    fi
+
+    # GRUB
+    sudo sed -i '/^GRUB_THEME=/d' "$GRUB_FILE"
+    sudo update-grub >/dev/null 2>&1
+
+    # Plymouth
+    if command -v plymouth-set-default-theme >/dev/null; then
+        sudo plymouth-set-default-theme text >/dev/null 2>&1
+    fi
+
+    # SDDM
+    sudo rm -f "$SDDM_CONFIG_DIR/bear-theme.conf"
+
+    # KDE/GNOME reset
+    if pgrep -x "plasmashell" >/dev/null; then
+        kwriteconfig5 --file kdeglobals --group General --key ColorScheme "Breeze"
+        qdbus org.kde.KWin /KWin reconfigure
+    elif pgrep -x "gnome-shell" >/dev/null; then
+        gsettings reset org.gnome.desktop.interface color-scheme
+    fi
+
+    # Fastfetch
+    rm -f "$FASTFETCH_CONFIG_DIR/config.jsonc"
+
+    echo "Toutes les personnalisations ont été réinitialisées."
+}
+
+function configurer_son_login() {
+    echo -e "\nCONFIGURATION SONORE DU LOGIN/BOOT"
+    son=$(selectionner_fichier_interactif "$HOME/Music" "*.mp3 *.ogg *.wav" "Choisissez un fichier audio")
+    [ -z "$son" ] && { echo "Aucun fichier sélectionné."; return 1; }
+
+    SYSTEMD_DIR="$HOME/.config/systemd/user"
+    mkdir -p "$SYSTEMD_DIR"
+
+    cat > "$SYSTEMD_DIR/login-sound.service" <<EOF
+[Unit]
+Description=Lecture d'un son au login
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/paplay "$son"
+
+[Install]
+WantedBy=default.target
+EOF
+
+    systemctl --user enable login-sound.service
+    echo "Son de login configuré : $(basename "$son")"
+}
+
+# Changer le thème du curseur
+function changer_curseur() {
+    echo -e "\nCHANGEMENT DU CURSEUR"
+    dir="/usr/share/icons"
+    echo "Thèmes de curseur disponibles :"
+    ls "$dir" | grep -i cursor
+    read -p "Entrez le nom du thème de curseur : " cur
+    if [ -n "$cur" ]; then
+        gsettings set org.gnome.desktop.interface cursor-theme "$cur" 2>/dev/null || true
+        kwriteconfig5 --file kcminputrc --group Mouse --key cursorTheme "$cur" 2>/dev/null || true
+        echo "Thème curseur appliqué : $cur"
+    fi
+}
+
+# Fonds d’écran dynamiques
+function wallpapers_dynamiques() {
+    echo -e "\nFONDS D’ÉCRAN DYNAMIQUES"
+    echo "1. KDE Plasma (jour/nuit)"
+    echo "2. GNOME (xml dynamique)"
+    read -p "Choix : " opt
+    case "$opt" in
+        1) plasma-apply-wallpaperimage --dynamic "$HOME/Pictures" ;;
+        2) gsettings set org.gnome.desktop.background picture-uri-dark "file://$HOME/Pictures/night.jpg" ;;
+    esac
+}
+
+# Backup configs
+function backup_configs() {
+    echo -e "\nBACKUP CONFIGS"
+    backup_dir="$HOME/BGC_Backup_$(date +%Y%m%d)"
+    mkdir -p "$backup_dir"
+    cp -r ~/.config ~/.local/share "$backup_dir/"
+    sudo cp -r /etc/sddm.conf.d /etc/default/grub "$backup_dir/" 2>/dev/null || true
+    echo "Backup effectué dans $backup_dir"
+}
+
+# Restore configs
+function restore_configs() {
+    echo -e "\nRESTAURATION CONFIGS"
+    read -p "Chemin du dossier backup : " bdir
+    [ ! -d "$bdir" ] && echo "Dossier invalide" && return
+    cp -r "$bdir/.config" "$HOME/"
+    cp -r "$bdir/.local" "$HOME/"
+    sudo cp -r "$bdir/sddm.conf.d" /etc/ 2>/dev/null || true
+    sudo cp "$bdir/grub" /etc/default/grub 2>/dev/null || true
+    echo "Restauration terminée"
+}
+
+# Export profil
+function exporter_profil() {
+    echo -e "\nEXPORT DE PROFIL"
+    profil="$HOME/BGC_Profile_$(date +%Y%m%d).tar.gz"
+    tar -czf "$profil" ~/.config ~/.local/share /etc/default/grub /etc/sddm.conf.d 2>/dev/null || true
+    echo "Profil exporté : $profil"
+}
+
+# Import profil
+function importer_profil() {
+    echo -e "\nIMPORT DE PROFIL"
+    read -p "Fichier .tar.gz : " f
+    [ ! -f "$f" ] && echo "Fichier invalide" && return
+    tar -xzf "$f" -C /
+    echo "Profil importé"
+}
+
+# Nettoyer thèmes/icônes inutilisés
+function nettoyer_themes() {
+    echo -e "\nNETTOYAGE"
+    sudo rm -rf /usr/share/themes/*old* /usr/share/icons/*old* 2>/dev/null || true
+    echo "Thèmes/icônes obsolètes supprimés."
+}
+
+# Mode Matrix / Hacker
+function mode_matrix() {
+    echo -e "\nMODE MATRIX"
+    command -v cmatrix >/dev/null || sudo pacman -S cmatrix --noconfirm
+    cmatrix
+}
+
+# Thèmes sonores complets KDE/GNOME
+function installer_theme_sonore() {
+    echo -e "\nINSTALLATION D'UN THÈME SONORE"
+    echo "1. KDE Plasma"
+    echo "2. GNOME"
+    read -p "Choix : " opt
+    case "$opt" in
+        1)
+            mkdir -p ~/.local/share/sounds
+            echo "Copiez vos sons dans ~/.local/share/sounds/MyTheme/"
+            kwriteconfig5 --file kdeglobals --group Sounds --key Theme "MyTheme"
+            ;;
+        2)
+            gsettings set org.gnome.desktop.sound theme-name "freedesktop"
+            echo "Appliquez votre pack sonore dans ~/.local/share/sounds/"
+            ;;
+    esac
+    echo "Thème sonore appliqué"
+}
+
+# Personnalisation du prompt shell
+function personnaliser_prompt() {
+    echo -e "\nPERSONNALISATION DU PROMPT SHELL"
+    echo "1. Prompt minimal"
+    echo "2. Prompt coloré"
+    echo "3. Prompt powerline (si police NerdFont installée)"
+    read -p "Choix : " opt
+    case "$opt" in
+        1) echo 'PS1="\u@\h:\w\$ "' >> ~/.bashrc ;;
+        2) echo 'PS1="\[\e[32m\]\u@\h\[\e[0m\]:\[\e[34m\]\w\[\e[0m\]\$ "' >> ~/.bashrc ;;
+        3) echo 'PS1="\[\e[36m\]\u\[\e[0m\]@\[\e[35m\]\h\[\e[0m\]:\[\e[33m\]\w\[\e[0m\] → "' >> ~/.bashrc ;;
+    esac
+    source ~/.bashrc
+    echo "Prompt appliqué."
+}
+
+# Installer NerdFonts automatiquement
+function installer_nerdfonts() {
+    echo -e "\nINSTALLATION DE NERD FONTS"
+    mkdir -p ~/.local/share/fonts
+    wget -q https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Hack.zip -O /tmp/Hack.zip
+    unzip -o /tmp/Hack.zip -d ~/.local/share/fonts/
+    fc-cache -fv
+    echo "NerdFonts Hack installé."
+}
+
+# Wallpapers météo
+function wallpapers_meteo() {
+    echo -e "\nFONDS D’ÉCRAN MÉTÉO"
+    echo "Exemple : clair (sunny.jpg), pluie (rain.jpg), neige (snow.jpg)"
+    read -p "Météo actuelle (sunny/rain/snow) : " meteo
+    case "$meteo" in
+        sunny) img="$HOME/Pictures/sunny.jpg" ;;
+        rain) img="$HOME/Pictures/rain.jpg" ;;
+        snow) img="$HOME/Pictures/snow.jpg" ;;
+        *) echo "Type inconnu"; return ;;
+    esac
+    if pgrep -x "plasmashell" >/dev/null; then
+        plasma-apply-wallpaperimage "$img"
+    else
+        gsettings set org.gnome.desktop.background picture-uri "file://$img"
+    fi
+    echo "Wallpaper appliqué pour météo : $meteo"
+}
+
+# Switch gestionnaire de connexion
+function changer_display_manager() {
+    echo -e "\nCHANGER DE GESTIONNAIRE DE CONNEXION"
+    echo "1. SDDM"
+    echo "2. LightDM"
+    echo "3. GDM"
+    read -p "Choix : " opt
+    case "$opt" in
+        1) sudo systemctl enable sddm --force ;;
+        2) sudo systemctl enable lightdm --force ;;
+        3) sudo systemctl enable gdm --force ;;
+    esac
+    echo "Gestionnaire de connexion changé."
+}
+
+# MOTD custom (message SSH/TTY)
+function motd_custom() {
+    echo -e "\nMESSAGE DU JOUR (MOTD)"
+    read -p "Votre message personnalisé : " msg
+    echo "$msg" | sudo tee /etc/motd
+    echo "MOTD appliqué."
+}
+
+# Wallpapers animés avec mpv
+function wallpaper_video() {
+    echo -e "\nWALLPAPER VIDÉO"
+    vid=$(selectionner_fichier_interactif "$HOME/Videos" "*.mp4 *.mkv" "Choisissez une vidéo")
+    [ -z "$vid" ] && return
+    pkill mpvpaper 2>/dev/null
+    nohup mpvpaper -o "no-audio loop" "*" "$vid" >/dev/null 2>&1 &
+    echo "Vidéo appliquée en fond d’écran."
+}
+
+# Lecture musique locale
+function lire_musique_terminal() {
+    echo -e "\nLECTURE DE MUSIQUE LOCALE"
+    read -p "Chemin du fichier audio (.mp3/.flac/.wav) : " fichier
+    if [ ! -f "$fichier" ]; then
+        echo "Fichier introuvable"
+        return 1
+    fi
+
+    if command -v mpg123 >/dev/null; then
+        mpg123 "$fichier"
+    elif command -v cmus >/dev/null; then
+        cmus-remote -q && cmus-remote -C "add $fichier" && cmus-remote -p
+    else
+        echo "Installez mpg123 ou cmus pour lire de la musique"
+        return 1
+    fi
+
+    changer_couleur_os_par_musique "$fichier"
+    afficher_paroles_terminal "$fichier"
+}
+
+# Radio en streaming
+function radio_terminal() {
+    echo -e "\nRADIO STREAMING"
+    read -p "Entrez l'URL du flux radio : " url
+    if command -v mpg123 >/dev/null; then
+        mpg123 "$url"
+    elif command -v vlc >/dev/null; then
+        cvlc "$url"
+    else
+        echo "Installez mpg123 ou vlc pour écouter la radio"
+        return 1
+    fi
+}
+
+# Couleur dynamique OS
+function changer_couleur_os_par_musique() {
+    fichier="$1"
+    pochette="/tmp/cover.jpg"
+
+    if command -v ffmpeg >/dev/null; then
+        ffmpeg -y -i "$fichier" -an -vcodec copy "$pochette" 2>/dev/null
+    fi
+
+    if [ ! -f "$pochette" ]; then
+        echo "Impossible d’extraire une pochette"
+        return 1
+    fi
+
+    couleur=$(convert "$pochette" -resize 1x1 txt:- | grep -om1 '#[0-9A-Fa-f]\{6\}')
+    echo "Couleur dominante détectée : $couleur"
+
+    if pgrep -x "plasmashell" >/dev/null; then
+        kwriteconfig5 --file kdeglobals --group Colors --key BackgroundNormal "$couleur"
+        qdbus org.kde.KWin /KWin reconfigure
+    elif pgrep -x "gnome-shell" >/dev/null; then
+        gsettings set org.gnome.desktop.background primary-color "$couleur"
+    else
+        echo "Bureau non reconnu, appliquez manuellement la couleur $couleur"
+    fi
+}
+
+# Paroles dans le terminal
+function afficher_paroles_terminal() {
+    fichier="$1"
+    titre=$(basename "$fichier" | sed 's/\.[^.]*$//')
+
+    echo -e "\nPAROLES POUR: $titre"
+
+    if command -v lyrics >/dev/null; then
+        lyrics "$titre"
+    else
+        reponse=$(curl -s "https://api.lyrics.ovh/v1/Coldplay/$titre")
+        echo "$reponse" | grep -oP '(?<="lyrics":")[^"]*' | sed 's/\\n/\n/g'
+    fi
+}
+
+# MODE GAMING
+function mode_gaming() {
+    echo -e "\nMODE GAMING"
+    echo "1. Activer mode gaming (perf max)"
+    echo "2. Désactiver mode gaming (restaurer services)"
+    read -p "Choix : " opt
+    case "$opt" in
+        1)
+            echo "Activation du mode performance..."
+            sudo systemctl stop bluetooth cups baloo-file
+            if command -v cpupower >/dev/null; then
+                sudo cpupower frequency-set -g performance
+            elif command -v powerprofilesctl >/dev/null; then
+                sudo powerprofilesctl set performance
+            fi
+            ;;
+        2)
+            echo "Restauration des services..."
+            sudo systemctl start bluetooth cups baloo-file
+            if command -v cpupower >/dev/null; then
+                sudo cpupower frequency-set -g schedutil
+            elif command -v powerprofilesctl >/dev/null; then
+                sudo powerprofilesctl set balanced
+            fi
+            ;;
+    esac
+}
+
+# GESTIONNAIRE DE THEMES
+function gestionnaire_themes() {
+    echo -e "\nGESTIONNAIRE DE THEMES"
+    echo "1. GRUB"
+    echo "2. Plymouth"
+    echo "3. SDDM"
+    echo "4. Icônes système"
+    read -p "Choix : " cat
+    case "$cat" in
+        1) dossier="/boot/grub/themes" ;;
+        2) dossier="/usr/share/plymouth/themes" ;;
+        3) dossier="/usr/share/sddm/themes" ;;
+        4) dossier="/usr/share/icons" ;;
+        *) echo "Invalide" ; return ;;
+    esac
+
+    echo "Thèmes disponibles dans $dossier :"
+    ls "$dossier"
+    read -p "Nom du thème à appliquer : " theme
+
+    if [ "$cat" -eq 1 ]; then
+        sudo sed -i "s|^GRUB_THEME=.*|GRUB_THEME=$dossier/$theme/theme.txt|" /etc/default/grub
+        sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg
+    elif [ "$cat" -eq 2 ]; then
+        sudo update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth "$dossier/$theme/$theme.plymouth" 100
+        sudo update-alternatives --set default.plymouth "$dossier/$theme/$theme.plymouth"
+        sudo update-initramfs -u
+    elif [ "$cat" -eq 3 ]; then
+        sudo sed -i "s|^Current=.*|Current=$theme|" /etc/sddm.conf
+    elif [ "$cat" -eq 4 ]; then
+        gsettings set org.gnome.desktop.interface icon-theme "$theme" 2>/dev/null
+        kwriteconfig5 --file kdeglobals --group Icons --key Theme "$theme"
+    fi
+
+    echo "Thème $theme appliqué."
+}
+
+# OPTIMISATION LAPTOP
+function mode_laptop() {
+    echo -e "\nMODE LAPTOP"
+    echo "1. Économie d'énergie"
+    echo "2. Performance maximale"
+    read -p "Choix : " opt
+    case "$opt" in
+        1)
+            echo "Mode économie activé"
+            if command -v cpupower >/dev/null; then
+                sudo cpupower frequency-set -g powersave
+            elif command -v powerprofilesctl >/dev/null; then
+                sudo powerprofilesctl set power-saver
+            fi
+            ;;
+        2)
+            echo "Mode performance activé"
+            if command -v cpupower >/dev/null; then
+                sudo cpupower frequency-set -g performance
+            elif command -v powerprofilesctl >/dev/null; then
+                sudo powerprofilesctl set performance
+            fi
+            ;;
+    esac
+}
+
+# INTEGRATION SPOTDL
+function telecharger_musique_spotify() {
+    echo -e "\nTELECHARGEMENT MUSIQUE (Spotify/YouTube)"
+    read -p "Lien Spotify/YouTube : " url
+    mkdir -p ~/Music/BearGrubChanger
+    if command -v spotdl >/dev/null; then
+        spotdl "$url" --output ~/Music/BearGrubChanger/
+    else
+        echo "spotdl non installé"
+    fi
+}
+
+# PACKS DE THEMATIQUES
+function packs_thematiques() {
+    echo -e "\nPACKS THEMATIQUES"
+    echo "1. Dark Neon"
+    echo "2. Mac-like"
+    echo "3. Minimal"
+    read -p "Choix : " opt
+    case "$opt" in
+        1)
+            echo "Application du pack Dark Neon..."
+            appliquer_theme "fallout"
+            appliquer_theme_icones_systeme "Tela-dark"
+            basculer_theme_systeme "dark"
+            ;;
+        2)
+            echo "Application du pack Mac-like..."
+            appliquer_theme_icones_systeme "Papirus-Light"
+            changer_curseur "macos-cursor"
+            basculer_theme_systeme "light"
+            ;;
+        3)
+            echo "Application du pack Minimal..."
+            appliquer_theme_icones_systeme "Papirus-Adapta-Nokto"
+            basculer_theme_systeme "dark"
+            personnaliser_prompt minimal
+            ;;
+    esac
+}
+
+# Lire une musique locale
+function lire_musique_terminal() {
+    echo -e "\nLECTURE DE MUSIQUE LOCALE"
+    read -p "Chemin du fichier audio (.mp3/.flac/.wav) : " fichier
+    if [ ! -f "$fichier" ]; then
+        echo "Fichier introuvable"
+        return 1
+    fi
+    if command -v mpg123 >/dev/null; then
+        mpg123 "$fichier"
+    elif command -v cmus >/dev/null; then
+        cmus-remote -q && cmus-remote -C "add $fichier" && cmus-remote -p
+    else
+        echo "Installez mpg123 ou cmus pour lire de la musique"
+        return 1
+    fi
+}
+
+# Radio en streaming
+function radio_terminal() {
+    echo -e "\nRADIO STREAMING"
+    read -p "Entrez l'URL du flux radio : " url
+    if command -v mpg123 >/dev/null; then
+        mpg123 "$url"
+    elif command -v vlc >/dev/null; then
+        cvlc "$url"
+    else
+        echo "Installez mpg123 ou vlc pour écouter la radio"
+        return 1
+    fi
+}
+
+# Affichage des paroles
+function afficher_paroles_terminal() {
+    morceau="$1"
+    if command -v lyrics >/dev/null; then
+        lyrics "$morceau"
+    else
+        echo "Récupération via lyrics.ovh..."
+        reponse=$(curl -s "https://api.lyrics.ovh/v1/Coldplay/$morceau")
+        echo "$reponse" | grep -oP '(?<="lyrics":")[^"]*' | sed 's/\\n/\n/g'
+    fi
+}
+
+# Couleur dynamique de l'OS selon la musique
+function changer_couleur_os_par_musique() {
+    fichier="$1"
+    pochette="/tmp/cover.jpg"
+    if command -v ffmpeg >/dev/null; then
+        ffmpeg -y -i "$fichier" -an -vcodec copy "$pochette" 2>/dev/null
+    fi
+    if [ ! -f "$pochette" ]; then
+        echo "Impossible d’extraire une pochette"
+        return 1
+    fi
+    couleur=$(convert "$pochette" -resize 1x1 txt:- | grep -om1 '#[0-9A-Fa-f]\{6\}')
+    echo "Couleur dominante détectée : $couleur"
+    if pgrep -x "plasmashell" >/dev/null; then
+        kwriteconfig5 --file kdeglobals --group Colors --key BackgroundNormal "$couleur"
+        qdbus org.kde.KWin /KWin reconfigure
+    elif pgrep -x "gnome-shell" >/dev/null; then
+        gsettings set org.gnome.desktop.background primary-color "$couleur"
+    fi
+}
+
+# Télécharger musique Spotify/YouTube
+function telecharger_musique_spotify() {
+    echo -e "\nTELECHARGER MUSIQUE (Spotify / YouTube)"
+    read -p "Lien du morceau/playlist : " url
+    mkdir -p ~/Music/BearGrubChanger
+    if command -v spotdl >/dev/null; then
+        spotdl "$url" --output ~/Music/BearGrubChanger/
+    else
+        echo "Installez spotdl (pip install spotdl)"
+        return 1
+    fi
+    echo "Musique téléchargée dans ~/Music/BearGrubChanger/"
+}
+
+function customiser_fastfetch_plus() {
     while true; do
-        echo -e "\nBearGrubChanger - Menu Principal"
-        echo "1. Installer tous les thèmes, polices, icônes + GRUB + Plymouth + SDDM"
-        echo "2. Changer le thème GRUB"
-        echo "3. Appliquer une police pour le menu GRUB"
-        echo "4. Changer la police système (application automatique)"
-        echo "5. Remplacer les icônes GRUB"
-        echo "6. Activer une animation Plymouth"
-        echo "7. Activer un splashscreen KDE Plasma (GIF supporté)"
-        echo "8. Changer le thème SDDM"
-        echo "9. Ajuster le délai de sélection GRUB"
-        echo "10. Fond d'écran animé KDE Plasma (sélection vidéo)"
-        echo "11. Thème global"
-        echo "12. Mettre à jour tous les logiciels du système"
-        echo "13. Customiser Fastfetch (logos personnalisés)"
-        echo "0. Quitter"
+        echo "=== Fastfetch Plus ==="
+        echo "1. Modifier le logo Fastfetch"
+        echo "2. Ajouter des modules (batterie, CPU/GPU, etc.)"
+        echo "3. Couleurs aléatoires pour le logo Fastfetch"
+        echo "0. Retour"
         read -p "Choix : " opt
 
         case "$opt" in
-            1)
-                verifier_et_installer_grub
-                cloner_depot
-                installer_tous_les_assets
-                forcer_affichage_menu_grub
-                installer_plymouth
-                installer_sddm
-                sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg
+            1) echo "Modification du logo..." ;;
+            2) echo "Ajout de modules..." ;;
+            3)
+                echo "Activation couleurs aléatoires..."
+                cfg="$HOME/.config/fastfetch/config.conf"
+                mkdir -p "$(dirname "$cfg")"
+                if ! grep -q "random_color=" "$cfg" 2>/dev/null; then
+                    echo "random_color=true" >> "$cfg"
+                else
+                    sed -i 's/random_color=.*/random_color=true/' "$cfg"
+                fi
                 ;;
-            2) appliquer_theme ;;
-            3) appliquer_police ;;
-            4) appliquer_police_systeme ;;
-            5) remplacer_icones ;;
-            6) choisir_theme_plymouth ;;
-            7) activer_splashscreen_kde ;;
-            8) choisir_theme_sddm ;;
-            9) ajuster_delai_grub ;;
-            10) activer_fond_anime_kde ;;
-            11) appliquer_theme_icones_systeme ;;
-            12) mettre_a_jour_systeme ;;
-            13) customiser_fastfetch ;;
-            0) echo "T'a intéret à étoilé mes repos GitHub et me suivre !"; exit 0 ;;
+            0) break ;;
             *) echo "Option invalide." ;;
+        esac
+    done
+}
+
+function personnaliser_lightdm() {
+    echo "Installation et configuration LightDM..."
+    sudo pacman -S --noconfirm lightdm lightdm-gtk-greeter
+    sudo systemctl disable sddm gdm 2>/dev/null
+    sudo systemctl enable lightdm
+    sudo systemctl set-default graphical.target
+    echo "LightDM activé."
+}
+
+function plymouth_theme_from_video() {
+    read -p "Chemin de la vidéo ou GIF : " input
+    theme_dir="/usr/share/plymouth/themes/custom_video"
+    sudo mkdir -p "$theme_dir/frames"
+    ffmpeg -i "$input" -vf "scale=640:-1,fps=20" "$theme_dir/frames/frame%04d.png"
+    dominant=$(ffmpeg -i "$input" -vf "scale=1:1" -f image2pipe -vcodec ppm - 2>/dev/null | convert - -format "%[hex:p{0,0}]" info:-)
+    echo "[Plymouth Theme]
+Name=CustomVideo
+Description=Thème généré depuis vidéo/GIF
+ModuleName=script
+
+[script]
+ImageDir=$theme_dir/frames
+ProgressBarColor=$dominant
+" | sudo tee "$theme_dir/custom_video.plymouth" >/dev/null
+    sudo plymouth-set-default-theme -R custom_video
+    echo "Thème Plymouth vidéo activé."
+}
+
+function plymouth_preview() {
+    read -p "Nom du thème : " theme
+    sudo plymouth-set-default-theme "$theme"
+    plymouth-preview "$theme"
+}
+
+function login_banner_logo() {
+    read -p "Chemin du logo à utiliser : " logo
+    sudo cp "$logo" /usr/share/pixmaps/login-logo.png
+    echo "Logo remplacé."
+}
+
+function login_transparency() {
+    echo "Activation transparence/flou pour SDDM..."
+    conf="/etc/sddm.conf.d/kde_settings.conf"
+    sudo mkdir -p /etc/sddm.conf.d
+    echo "[Theme]
+EnableBlur=true
+BackgroundOpacity=0.7" | sudo tee "$conf" >/dev/null
+}
+
+function login_wallpaper_rotation() {
+    dir="$HOME/.local/share/sddm/wallpapers"
+    mkdir -p "$dir"
+    read -p "Chemin dossier avec images : " src
+    cp "$src"/* "$dir"/
+    (crontab -l 2>/dev/null; echo "0 0 * * * feh --bg-scale --randomize $dir/*") | crontab -
+    echo "Rotation auto activée."
+}
+
+function mix_icones() {
+    read -p "Nom du pack résultat : " name
+    dest="$HOME/.icons/$name"
+    mkdir -p "$dest"
+    read -p "Chemins des packs à fusionner (séparés par espace) : " packs
+    for p in $packs; do
+        cp -rn "$p"/* "$dest"/
+    done
+    echo "Mix créé dans $dest"
+}
+
+function mode_randomizer() {
+    echo "Application de thèmes/icônes aléatoires..."
+    shuf -n 1 ~/.themes/* | xargs -I{} gsettings set org.gnome.desktop.interface gtk-theme {}
+    shuf -n 1 ~/.icons/* | xargs -I{} gsettings set org.gnome.desktop.interface icon-theme {}
+    sudo plymouth-set-default-theme -R $(ls /usr/share/plymouth/themes | shuf -n 1)
+    sudo grub-set-default 0
+    echo "Randomizer appliqué."
+}
+
+function integrer_spicetify() {
+    if ! command -v spicetify >/dev/null; then
+        curl -fsSL https://raw.githubusercontent.com/spicetify/spicetify-cli/master/install.sh | sh
+    fi
+    spicetify backup apply
+    echo "Installation thèmes et extensions populaires..."
+    git clone https://github.com/spicetify/spicetify-themes ~/.spicetify/Themes
+    git clone https://github.com/spicetify/spicetify-extensions ~/.spicetify/Extensions
+    spicetify config current_theme Dribbblish color_scheme base
+    spicetify apply
+}
+
+# Interface utilisateur
+# Interface utilisateur
+menu_principal() {
+    while true; do
+        echo
+        echo "BearGrubChanger - Menu Principal"
+
+        echo " INSTALLATION & MAJ "
+        echo "1.  Installer tous les thèmes, polices, icônes + GRUB + Plymouth + SDDM"
+        echo "2.  Mettre à jour tous les logiciels du système"
+
+        echo " GESTION GRUB "
+        echo "3.  Changer le thème GRUB"
+        echo "4.  Appliquer une police pour le menu GRUB"
+        echo "5.  Remplacer les icônes GRUB"
+        echo "6.  Ajuster le délai de sélection GRUB"
+
+        echo " GESTION PLYMOUTH "
+        echo "7.  Activer/choisir un thème Plymouth"
+
+        echo " GESTION LOGIN (SDDM/GDM/LightDM) "
+        echo "8.  Changer le thème SDDM"
+        echo "9.  Changer de gestionnaire de connexion (GDM/SDDM/LightDM)"
+
+        echo " KDE / GNOME "
+        echo "10. Activer un splashscreen KDE Plasma (GIF supporté)"
+        echo "11. Fond d'écran animé KDE Plasma (sélection vidéo)"
+        echo "12. Fonds d’écran dynamiques (jour/nuit)"
+        echo "13. Fonds d’écran météo"
+        echo "14. Wallpaper vidéo avec mpv"
+        echo "15. Thème global (icônes, couleurs...)"
+        echo "16. Changer le thème GTK/QT système (clair/sombre/auto)"
+        echo "17. Modifier la barre des tâches"
+        echo "18. Changer le thème du curseur"
+
+        echo " LOCKSCREEN "
+        echo "19. Changer le thème de l'écran de verrouillage"
+
+        echo " FASTFETCH "
+        echo "20. Customiser Fastfetch (simple)"
+        echo "21. Customiser Fastfetch (avancé, ASCII, images...)"
+
+        echo " SYSTEME "
+        echo "22. Changer la police système"
+        echo "23. Configurer la disposition clavier au boot"
+        echo "24. Configurer un fond sonore de login/boot"
+        echo "25. Installer un thème sonore (GNOME/KDE)"
+        echo "26. Personnaliser le prompt du shell"
+        echo "27. Installer NerdFonts"
+
+        echo " TOOLS "
+        echo "28. Randomiser les thèmes/icônes/fastfetch"
+        echo "29. Backup des configurations"
+        echo "30. Restauration des configurations"
+        echo "31. Export d’un profil complet"
+        echo "32. Import d’un profil complet"
+        echo "33. Nettoyer thèmes/icônes inutilisés"
+        echo "34. Message MOTD custom (SSH/TTY)"
+        echo "35. Mode Matrix (fun)"
+
+        echo " MUSIQUE "
+        echo "36. Lire une musique locale"
+        echo "37. Écouter la radio en streaming"
+        echo "38. Afficher paroles d’un morceau"
+        echo "39. Activer la couleur dynamique selon la musique"
+        echo "40. Télécharger musique Spotify/YouTube"
+
+        echo " RESET "
+        echo "41. RESET complet (restaurer état par défaut)"
+
+        echo " EXTENSIONS PLYMOUTH "
+        echo "42. Plymouth animé depuis vidéo/GIF"
+        echo "43. Prévisualiser le thème Plymouth"
+
+        echo " EXTENSIONS LOGIN (SDDM/LIGHTDM) "
+        echo "44. Ajouter une bannière / un logo sur l’écran de login"
+        echo "45. Activer transparence / flou sur l’écran de login"
+        echo "46. Rotation automatique des fonds d’écran du login"
+        echo "47. Personnaliser LightDM"
+
+        echo " ICONES & RANDOM "
+        echo "48. Mixer plusieurs packs d’icônes"
+        echo "49. Randomizer complet (thèmes/icônes/Plymouth/GRUB)"
+
+        echo " SPOTIFY "
+        echo "50. Intégration Spicetify (thèmes + extensions)"
+
+        echo "0.  Quitter"
+        read -p "Choix : " opt
+
+        case "$opt" in
+            1)  verifier_et_installer_grub; cloner_depot; installer_tous_les_assets; forcer_affichage_menu_grub; installer_plymouth; installer_sddm; sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg ;;
+            2)  mettre_a_jour_systeme ;;
+
+            3)  appliquer_theme ;;
+            4)  appliquer_police ;;
+            5)  remplacer_icones ;;
+            6)  ajuster_delai_grub ;;
+
+            7)  choisir_theme_plymouth ;;
+
+            8)  choisir_theme_sddm ;;
+            9)  changer_display_manager ;;
+
+            10) activer_splashscreen_kde ;;
+            11) activer_fond_anime_kde ;;
+            12) wallpapers_dynamiques ;;
+            13) wallpapers_meteo ;;
+            14) wallpaper_video ;;
+            15) appliquer_theme_icones_systeme ;;
+            16) basculer_theme_systeme ;;
+            17) configurer_barre_taches ;;
+            18) changer_curseur ;;
+
+            19) configurer_lockscreen ;;
+
+            20) customiser_fastfetch ;;
+            21) customiser_fastfetch_plus ;;
+
+            22) appliquer_police_systeme ;;
+            23) configurer_clavier_boot ;;
+            24) configurer_son_login ;;
+            25) installer_theme_sonore ;;
+            26) personnaliser_prompt ;;
+            27) installer_nerdfonts ;;
+
+            28) randomiser_personnalisation ;;
+            29) backup_configs ;;
+            30) restore_configs ;;
+            31) exporter_profil ;;
+            32) importer_profil ;;
+            33) nettoyer_themes ;;
+            34) motd_custom ;;
+            35) mode_matrix ;;
+
+            36) lire_musique_terminal ;;
+            37) radio_terminal ;;
+            38) read -p "Fichier ou titre : " morceau; afficher_paroles_terminal "$morceau" ;;
+            39) read -p "Fichier audio : " fichier; changer_couleur_os_par_musique "$fichier" ;;
+            40) telecharger_musique_spotify ;;
+
+            41) reset_personnalisation ;;
+
+            # Extensions Plymouth
+            42) plymouth_theme_from_video ;;
+            43) plymouth_preview ;;
+
+            # Extensions login (SDDM/LightDM)
+            44) login_banner_logo ;;
+            45) login_transparency ;;
+            46) login_wallpaper_rotation ;;
+            47) personnaliser_lightdm ;;
+
+            # Icônes & Randomizer & Spicetify
+            48) mix_icones ;;
+            49) mode_randomizer ;;
+            50) integrer_spicetify ;;
+
+            0)  echo "Merci d’utiliser BearGrubChanger !"; exit 0 ;;
+            *)  echo "Option invalide." ;;
+            # AJOUTER TELECHARGEUR DE VIDEOS 
         esac
     done
 }
