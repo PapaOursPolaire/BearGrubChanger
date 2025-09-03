@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 408.8, mise à jour le 03/09/2025 - 17:45
+# Version 418.8, mise à jour le 03/09/2025 - 18:03
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -3331,15 +3331,118 @@ function mode_randomizer() {
 }
 
 function integrer_spicetify() {
-    if ! command -v spicetify >/dev/null; then
-        curl -fsSL https://raw.githubusercontent.com/spicetify/spicetify-cli/master/install.sh | sh
+    echo -e "\nINSTALLATION DE SPOTIFY ET CONFIGURATION DE SPICETIFY"
+    
+    # Vérifier si Spotify est déjà installé
+    if ! command -v spotify >/dev/null; then
+        echo "Spotify n'est pas installé. Installation en cours..."
+        
+        # Installation selon la distribution
+        if command -v apt >/dev/null; then
+            # Méthode 1: Snap (recommandé)
+            if command -v snap >/dev/null; then
+                sudo snap install spotify
+            # Méthode 2: Depuis le dépôt officiel
+            else
+                curl -sS https://download.spotify.com/debian/pubkey_7A3A762FAFD4A51F.gpg | sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
+                echo "deb http://repository.spotify.com stable non-free" | sudo tee /etc/apt/sources.list.d/spotify.list
+                sudo apt update
+                sudo apt install spotify-client -y
+            fi
+            
+        elif command -v pacman >/dev/null; then
+            # Arch Linux - AUR
+            if command -v yay >/dev/null; then
+                yay -S spotify --noconfirm
+            elif command -v paru >/dev/null; then
+                paru -S spotify --noconfirm
+            else
+                echo "Installez yay ou paru pour installer Spotify depuis AUR"
+                return 1
+            fi
+            
+        elif command -v dnf >/dev/null; then
+            # Fedora - Flatpak
+            if command -v flatpak >/dev/null; then
+                flatpak install flathub com.spotify.Client -y
+            else
+                echo "Installez flatpak pour installer Spotify"
+                return 1
+            fi
+        fi
+        
+        # Vérifier que l'installation a réussi
+        if ! command -v spotify >/dev/null; then
+            echo "Échec de l'installation de Spotify"
+            return 1
+        fi
+        
+        echo "Spotify installé avec succès"
+    else
+        echo "Spotify est déjà installé"
     fi
+    
+    # Installation de Spicetify
+    echo "Installation de Spicetify..."
+    
+    # Méthode officielle
+    curl -fsSL https://raw.githubusercontent.com/spicetify/spicetify-cli/master/install.sh | sh
+    
+    # Vérification de l'installation
+    if ! command -v spicetify >/dev/null; then
+        echo "Échec de l'installation de Spicetify"
+        return 1
+    fi
+    
+    echo "Spicetify installé avec succès"
+    
+    # Configuration initiale
+    echo "Configuration de Spicetify..."
     spicetify backup apply
-    echo "Installation thèmes et extensions populaires..."
-    git clone https://github.com/spicetify/spicetify-themes ~/.spicetify/Themes
-    git clone https://github.com/spicetify/spicetify-extensions ~/.spicetify/Extensions
-    spicetify config current_theme Dribbblish color_scheme base
+    spicetify config prefs_path ~/.config/spotify/prefs
+    spicetify config current_theme SpicetifyDefault
+    spicetify config color_scheme base
+    
+    # Installation des thèmes et extensions depuis le marketplace
+    echo "Installation des ressources depuis le marketplace..."
+    
+    # Création des dossiers s'ils n'existent pas
+    mkdir -p ~/.config/spicetify/Themes
+    mkdir -p ~/.config/spicetify/Extensions
+    mkdir -p ~/.config/spicetify/CustomApps
+    
+    # Téléchargement des thèmes populaires
+    echo "Téléchargement des thèmes populaires..."
+    git clone https://github.com/spicetify/spicetify-themes ~/.config/spicetify/Themes 2>/dev/null || {
+        echo "Les thèmes sont déjà installés ou erreur de téléchargement"
+    }
+    
+    # Téléchargement des extensions
+    echo "Téléchargement des extensions..."
+    git clone https://github.com/spicetify/spicetify-extensions ~/.config/spicetify/Extensions 2>/dev/null || {
+        echo "Les extensions sont déjà installées ou erreur de téléchargement"
+    }
+    
+    # Configuration du marketplace
+    echo "Configuration du marketplace..."
+    curl -fsSL https://raw.githubusercontent.com/spicetify/spicetify-marketplace/main/resources/install.sh | sh
+    
+    # Application de la configuration
+    echo "Application de la configuration..."
     spicetify apply
+    
+    echo -e "\nINSTALLATION TERMINÉE !"
+    echo "Spotify et Spicetify sont maintenant configurés"
+    echo "Thèmes disponibles: Dribbblish, Onepunch, Ziro, etc."
+    echo "Extensions disponibles: lyrics, playlist-icons, shuffle+"
+    echo "Marketplace accessible: Ouvrez Spotify → Spicetify → Marketplace"
+    echo ""
+    echo "Commandes utiles:"
+    echo "  spicetify apply          # Appliquer les changements"
+    echo "  spicetify backup apply   # Restaurer la sauvegarde"
+    echo "  spicetify restore        # Restaurer l'original"
+    echo ""
+    echo "Redémarrez Spotify pour voir les changements!"
 }
 
 # Téléchargeur de vidéos universel
