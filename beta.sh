@@ -1,7 +1,15 @@
 #!/bin/bash
 
 # BearGrubChanger - by PapaOursPolaire 
-# Version 448.8, mise à jour le 04/09/2025 - 20:59
+# Version 168.8, mise à jour le 12/09/2025 - 22:15
+
+# A APPORTER COMME MODIFICATIONS AU SCRIPT :
+# - Installation automatique de spotdl ainsi que d'yt-dlp
+# - Corriger/améliorer les options 4,9,10,11,13,14,15,19,20,21,23,24,25,26,27,28,29,30,31,32,33,34 & 35
+# - Enelver l'option 32
+# - Fusionner les options 16 et 17
+# - Fusionner les options 10 et  11
+# - Ajouter le changement d'environnement desktop en se basant sur la distro detectée
 
 # Chemins et variables
 THEMES_DIR="/boot/grub/themes"
@@ -1593,9 +1601,9 @@ function convertir_image_fastfetch() {
     fi
 }
 
-# Fonction principale de customisation Fastfetch
-function customiser_fastfetch() {
-    echo -e "\nCUSTOMISATION DE FASTFETCH"
+# Fonction unifiée de customisation Fastfetch
+function fastfetch() {
+    echo -e "\nCUSTOMISATION COMPLÈTE DE FASTFETCH"
     
     # Installer Fastfetch si nécessaire
     installer_fastfetch || return 1
@@ -1603,31 +1611,64 @@ function customiser_fastfetch() {
     # Créer les dossiers nécessaires
     mkdir -p "$FASTFETCH_CONFIG_DIR"
     mkdir -p "$FASTFETCH_LOGOS_DIR"
+    mkdir -p "$FASTFETCH_IMAGES_DIR"
     
-    # Vérifier si le dossier d'images existe dans le repo
-    if [ ! -d "$FASTFETCH_IMAGES_DIR" ]; then
-        echo "Dossier d'images Fastfetch non trouvé dans le dépôt"
-        echo "Création du dossier pour images personnalisées..."
-        mkdir -p "$FASTFETCH_IMAGES_DIR"
+    while true; do
+        echo -e "\n=== MENU CUSTOMISATION FASTFETCH ==="
+        echo "1.  Logo fixe personnalisé (image)"
+        echo "2.  Logo aléatoire à chaque lancement"
+        echo "3.  Logo d'un autre OS (distro)"
+        echo "4.  Pokémon aléatoire à chaque lancement"
+        echo "5.  Image convertie en ASCII art"
+        echo "6.  ASCII art personnalisé"
+        echo "7.  Ajouter une nouvelle image/logo"
+        echo "8.  Gérer les modules (ajouter/supprimer)"
+        echo "9.  Activer couleurs aléatoires pour le logo"
+        echo "10. Aperçu de la configuration actuelle"
+        echo "11. Appliquer la configuration"
+        echo "12. Restaurer la configuration par défaut"
+        echo "13. Tester la configuration actuelle"
+        echo "0.  Retour au menu principal"
+        
+        read -p "Votre choix [0-13]: " fastfetch_choice
+        
+        case "$fastfetch_choice" in
+            1) configurer_logo_fixe_fastfetch ;;
+            2) configurer_logo_aleatoire_fastfetch ;;
+            3) choisir_logo_os ;;
+            4) configurer_pokemon_aleatoire ;;
+            5) convertir_image_ascii ;;
+            6) saisir_ascii_personnalise ;;
+            7) ajouter_image_fastfetch ;;
+            8) gerer_modules_fastfetch ;;
+            9) activer_couleurs_aleatoires ;;
+            10) afficher_configuration_actuelle ;;
+            11) appliquer_configuration_fastfetch ;;
+            12) restaurer_config_fastfetch ;;
+            13) 
+                echo -e "\nTEST DE LA CONFIGURATION ACTUELLE:"
+                fastfetch --config "$FASTFETCH_CONFIG_DIR/config.jsonc" 2>/dev/null || fastfetch
+                ;;
+            0) break ;;
+            *) echo "Option invalide." ;;
+        esac
+    done
+    
+    # Créer un alias pratique
+    echo -e "\nPour utiliser facilement votre configuration:"
+    echo "Ajoutez cette ligne à votre ~/.bashrc ou ~/.zshrc:"
+    echo "alias ff='fastfetch --config \"$FASTFETCH_CONFIG_DIR/config.jsonc\"'"
+    echo ""
+    read -p "Voulez-vous ajouter cet alias maintenant? [y/N]: " add_alias
+    if [[ "$add_alias" =~ ^[Yy]$ ]]; then
+        if [ -n "$ZSH_VERSION" ]; then
+            echo "alias ff='fastfetch --config \"$FASTFETCH_CONFIG_DIR/config.jsonc\"'" >> "$HOME/.zshrc"
+            echo "Alias ajouté à ~/.zshrc"
+        else
+            echo "alias ff='fastfetch --config \"$FASTFETCH_CONFIG_DIR/config.jsonc\"'" >> "$HOME/.bashrc"
+            echo "Alias ajouté à ~/.bashrc"
+        fi
     fi
-    
-    echo "Options de customisation Fastfetch :"
-    echo "1. Logo fixe personnalisé"
-    echo "2. Logo aléatoire à chaque lancement"
-    echo "3. Ajouter une nouvelle image/logo"
-    echo "4. Restaurer la configuration par défaut"
-    echo "0. Retour au menu principal"
-    
-    read -p "Votre choix [0-4]: " fastfetch_choice
-    
-    case "$fastfetch_choice" in
-        1) configurer_logo_fixe_fastfetch ;;
-        2) configurer_logo_aleatoire_fastfetch ;;
-        3) ajouter_image_fastfetch ;;
-        4) restaurer_config_fastfetch ;;
-        0) return 0 ;;
-        *) echo "Choix invalide" ;;
-    esac
 }
 
 # Configuration logo fixe
@@ -2608,7 +2649,7 @@ function choose_quality() {
 }
 
 # Fonction pour télécharger depuis les sites populaires
-function telecharger_site_specifique() {
+function telecharger_videos() {
     echo -e "\nTÉLÉCHARGEMENT SITE SPÉCIFIQUE"
     
     echo "Sites supportés:"
@@ -2831,60 +2872,6 @@ function telecharger_musique_spotify() {
         return 1
     fi
     echo "Musique téléchargée dans ~/Music/BearGrubChanger/"
-}
-
-function customiser_fastfetch_plus() {
-    echo -e "\nCUSTOMISATION AVANCÉE DE FASTFETCH"
-    
-    # Vérifier que Fastfetch est installé
-    installer_fastfetch || return 1
-    
-    while true; do
-        echo -e "\nOptions Fastfetch Plus:"
-        echo "1. Modifier le logo Fastfetch"
-        echo "2. Gérer les modules (ajouter/supprimer)"
-        echo "3. Activer couleurs aléatoires pour le logo"
-        echo "4. Aperçu de la configuration actuelle"
-        echo "5. Appliquer la configuration"
-        echo "0. Retour au menu principal"
-        
-        read -p "Votre choix [0-5]: " opt
-        
-        case "$opt" in
-            1) modifier_logo_fastfetch ;;
-            2) gerer_modules_fastfetch ;;
-            3) activer_couleurs_aleatoires ;;
-            4) afficher_configuration_actuelle ;;
-            5) appliquer_configuration_fastfetch ;;
-            0) break ;;
-            *) echo "Option invalide." ;;
-        esac
-    done
-}
-
-function modifier_logo_fastfetch() {
-    echo -e "\nMODIFICATION DU LOGO FASTFETCH"
-    echo "Types de logo disponibles:"
-    echo "1. Logo d'un autre OS (distro)"
-    echo "2. Pokémon aléatoire à chaque lancement"
-    echo "3. Image personnalisée"
-    echo "4. Image convertie en ASCII art"
-    echo "5. ASCII art personnalisé"
-    echo "6. Annuler"
-    
-    read -p "Votre choix [1-6]: " logo_choice
-    
-    case "$logo_choice" in
-        1) choisir_logo_os ;;
-        2) configurer_pokemon_aleatoire ;;
-        3) choisir_image_personnalisee ;;
-        4) convertir_image_ascii ;;
-        5) saisir_ascii_personnalise ;;
-        6) return ;;
-        *) echo "Choix invalide"; return 1 ;;
-    esac
-    
-    echo "Logo configuré avec succès!"
 }
 
 function choisir_logo_os() {
@@ -3445,12 +3432,6 @@ ProgressBarColor=$dominant
     echo "Thème Plymouth vidéo activé."
 }
 
-function plymouth_preview() {
-    read -p "Nom du thème : " theme
-    sudo plymouth-set-default-theme "$theme"
-    plymouth-preview "$theme"
-}
-
 function login_banner_logo() {
     read -p "Chemin du logo à utiliser : " logo
     sudo cp "$logo" /usr/share/pixmaps/login-logo.png
@@ -3655,6 +3636,10 @@ menu_principal() {
         
         read -p "Choix : " opt
 
+        # - Installation automatique de spotdl ainsi que d'yt-dlp
+        # - Corriger/améliorer les options 4,9,10,11,13,14,15,19,20,21,23,24,25,26,27,28,29,30,31,32,33,34 & 35
+        # - Fusionner les options 16 et 17
+        # - Fusionner les options 10 et  11
         case "$opt" in
             1)  verifier_et_installer_grub; cloner_depot; installer_tous_les_assets; forcer_affichage_menu_grub; installer_plymouth; installer_sddm; sudo update-grub || sudo grub-mkconfig -o /boot/grub/grub.cfg ;;
             2)  mettre_a_jour_systeme ;;
@@ -3677,31 +3662,29 @@ menu_principal() {
 
             15) configurer_lockscreen ;;
 
-            16) customiser_fastfetch ;;
-            17) customiser_fastfetch_plus ;;
+            16) fastfetch ;;
 
-            18) appliquer_police_systeme ;;
-            19) configurer_clavier_boot ;;
-            20) configurer_son_login ;;
-            21) installer_theme_sonore ;;
-            22) installer_nerdfonts ;;
+            17) appliquer_police_systeme ;;
+            18) configurer_clavier_boot ;;
+            19) configurer_son_login ;;
+            20) installer_theme_sonore ;;
+            21) installer_nerdfonts ;;
 
-            23) backup_configs ;;
-            24) restore_configs ;;
-            25) exporter_profil ;;
-            26) importer_profil ;;
-            27) nettoyer_themes ;;
-            28) telecharger_videos ;;
+            22) backup_configs ;;
+            23) restore_configs ;;
+            24) exporter_profil ;;
+            25) importer_profil ;;
+            26) nettoyer_themes ;;
+            27) telecharger_videos ;;
 
-            29) telecharger_musique_spotify ;;
-            30) integrer_spicetify ;;
+            28) telecharger_musique_spotify ;;
+            29) integrer_spicetify ;;
 
-            31) plymouth_theme_from_video ;;
-            32) plymouth_preview ;;
+            30) plymouth_theme_from_video ;;
 
-            33) login_banner_logo ;;
-            34) login_transparency ;;
-            35) login_wallpaper_rotation ;;
+            31) login_banner_logo ;;
+            32) login_transparency ;;
+            33) login_wallpaper_rotation ;;
 
             0)  echo "Merci d'utiliser BearGrubChanger !"; exit 0 ;;
             *)  echo "Option invalide." ;;
