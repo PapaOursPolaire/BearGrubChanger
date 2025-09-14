@@ -1,401 +1,405 @@
-/***************************************************************************
- * This config was meant specifically for the Steam Deck,
- *that being the case you will have to change certain things in the
- *code to make it more functional for your use case.
- *Things changed for the steam deck include: custom video size settings,
- *custom OSK settings, custom focus settings.
- *There's a custom background image for the login stuff and you will
- *need and your own custom video to play as the looping background.
- *I included the warning info below since it was included in the file.
- *you can test your theme out using the command:
- *sddm-greeter --test-mode --theme /usr/share/sddm/themes/fallout3/
- ***************************************************************************/
-/***************************************************************************
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without restriction,
- * including without limitation the rights to use, copy, modify, merge,
- * publish, distribute, sublicense, and/or sell copies of the Software,
- * and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
- * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
- * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
- * OR OTHER DEALINGS IN THE SOFTWARE.
- ***************************************************************************/
-
-
-import QtMultimedia 5.13
 import QtQuick 2.15
+import QtQuick.Controls 2.15
 import SddmComponents 2.0
+import QtMultimedia 5.15
+import QtGraphicalEffects 1.15
 
 Rectangle {
-
-    // ---------- FOND D'ÉCRAN MODIFIÉ (vidéo -> gif -> images aléatoires) ----------
-    Item {
-        id: background
-        anchors.fill: parent
-
-        // Fallback GIF (animé) — visible au démarrage
-        AnimatedImage {
-            id: fallbackGif
-            anchors.fill: parent
-            source: "background.gif"
-            fillMode: Image.PreserveAspectCrop
-            playing: true
-            visible: true
-            smooth: true
-        }
-
-        // Vidéo principale — masque le GIF quand elle commence
-        Video {
-            id: bgVideo
-            anchors.fill: parent
-            source: "background.mp4"
-            autoPlay: true
-            loops: MediaPlayer.Infinite
-            muted: false
-            fillMode: VideoOutput.PreserveAspectCrop
-
-            onPlaying: fallbackGif.visible = false
-            onStatusChanged: {
-                if (status === MediaPlayer.InvalidMedia) {
-                    fallbackGif.visible = true
-                }
-            }
-        }
-    }
-
     id: container
-    width: 640
-    height: 480
+    width: 1024
+    height: 768
+    color: "transparent"
 
-    LayoutMirroring.enabled: Qt.locale().textDirection == Qt.RightToLeft
-    LayoutMirroring.childrenInherit: true
+    property string configFile: "theme.conf"
+    property string backgroundSource: ""
+    property string mediaType: ""
+    property bool useRandomImages: false
+    property string imageFolderPath: ""
+    property int imageCount: 0
+    property int currentImageIndex: 0
 
-    property int sessionIndex: session.index
-
-    TextConstants { id: textConstants }
-
-    Connections {
-        target: sddm
-
-        function onLoginSucceeded() {
-            errorMessage.color = "steelblue"
-            errorMessage.text = textConstants.loginSucceeded
+    // Charger la configuration depuis le fichier theme.conf
+    function loadConfiguration() {
+        // Cette fonction serait normalement implémentée avec un plugin C++
+        // Pour cette démo, nous utilisons des valeurs par défaut
+        backgroundSource = config.CustomBackgroundPath || ""
+        mediaType = config.MediaType || ""
+        useRandomImages = config.UseRandomImages || false
+        imageFolderPath = config.ImageFolderPath || ""
+        imageCount = config.ImageCount || 0
+        
+        // Déterminer le type de média basé sur l'extension du fichier
+        if (mediaType === "" && backgroundSource !== "") {
+            var extension = backgroundSource.split('.').pop().toLowerCase();
+            if (extension === "mp4" || extension === "avi" || extension === "mov" || extension === "mkv") {
+                mediaType = "video";
+            } else if (extension === "gif") {
+                mediaType = "gif";
+            } else {
+                mediaType = "image";
+            }
         }
+        
+        // Mettre à jour les éléments d'affichage
+        updateBackground();
+    }
 
-        function onLoginFailed() {
-            password.text = ""
-            errorMessage.color = "red"
-            errorMessage.text = textConstants.loginFailed
-        }
-
-        function onInformationMessage(message) {
-            errorMessage.color = "red"
-            errorMessage.text = message
+    function updateBackground() {
+        if (useRandomImages && imageFolderPath !== "" && imageCount > 0) {
+            // Mode images aléatoires
+            randomImageTimer.start();
+            showRandomImage();
+        } else if (mediaType === "video") {
+            // Mode vidéo
+            videoBackground.source = backgroundSource;
+            videoBackground.play();
+            videoBackground.visible = true;
+            animatedGifBackground.visible = false;
+            staticImageBackground.visible = false;
+        } else if (mediaType === "gif") {
+            // Mode GIF animé
+            animatedGifBackground.source = backgroundSource;
+            animatedGifBackground.playing = true;
+            videoBackground.visible = false;
+            animatedGifBackground.visible = true;
+            staticImageBackground.visible = false;
+        } else {
+            // Mode image statique
+            staticImageBackground.source = backgroundSource;
+            videoBackground.visible = false;
+            animatedGifBackground.visible = false;
+            staticImageBackground.visible = true;
         }
     }
 
-    MediaPlayer {
-        id: videoPlayer
-        source: "file:///usr/share/sddm/themes/fallout3/fallout3titlescreen.mp4"
-        autoPlay: true
-        muted: true
-        loops: -1
-    }
-
-    VideoOutput {
-        anchors.fill: parent
-        source: videoPlayer
-        fillMode: VideoOutput.Stretch
-    }
-
-
-    Rectangle {
-        anchors.fill: parent
-        color: "transparent"
-
-        Clock {
-            id: clock
-            anchors.margins: 40
-            anchors.top: parent.top; anchors.right: parent.right
-            anchors.topMargin: 40
-            color: "#eaf5c4"
-
-            timeFont {
-                family: "Consolas"
-                bold: true  // Make the font bold
-                pixelSize: 90  // Adjust the font size as desired
-            }
-
-            dateFont {
-                family: "Lucida Console"
-                bold: true  // Make the font bold
-                pixelSize: 30  // Adjust the font size as desired
-            }
-        }
-
-
-
-        Image {
-            id: rectangle
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.right: parent.right
-            width: Math.max(370, mainColumn.implicitWidth + 50)
-            height: Math.max(320, mainColumn.implicitHeight + 50)
-            source: "loginterminalc.png"
-
-            Column {
-                id: mainColumn
-                anchors.centerIn: parent
-                spacing: 12
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    color: "black"
-                    verticalAlignment: Text.AlignVCenter
-                    height: text.implicitHeight
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: 24
-                    elide: Text.ElideRight
-                    horizontalAlignment: Text.AlignHCenter
-                }
-
-                Column {
-                    width: parent.width
-                    spacing: 4
-                    Text {
-                        id: lblName
-                        width: parent.width
-                        text: textConstants.userName
-                        color: "#88FF88"
-                        font.bold: true
-                        font.pixelSize: 12
-                    }
-
-                    TextBox {
-                        id: name
-                        width: parent.width; height: 30
-                        text: userModel.lastUser
-                        textColor: "#88FF88"
-                        color: "transparent"
-                        font.pixelSize: 14
-
-                        KeyNavigation.backtab: rebootButton; KeyNavigation.tab: password
-
-                        Keys.onPressed: {
-                            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                                sddm.login(name.text, password.text, sessionIndex)
-                                event.accepted = true
-                            }
-                        }
-                    }
-                }
-
-                Column {
-                    width: parent.width
-                    spacing: 4
-                    Text {
-                        id: lblPassword
-                        width: parent.width
-                        text: textConstants.password
-                        color: "#88FF88"
-                        font.bold: true
-                        font.pixelSize: 12
-                    }
-
-                    PasswordBox {
-                        id: password
-                        width: parent.width; height: 30
-                        font.pixelSize: 14
-                        textColor: "#88FF88"
-                        color: "transparent"
-
-                        KeyNavigation.backtab: name; KeyNavigation.tab: session
-
-                        Keys.onPressed: {
-                            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                                sddm.login(name.text, password.text, sessionIndex)
-                                event.accepted = true
-                            }
-                        }
-                    }
-                }
-
-                Row {
-                    spacing: 4
-                    width: parent.width / 2
-
-                    Column {
-                        width: parent.width * 1.3
-                        spacing: 4
-                        anchors.bottom: parent.bottom
-
-                        Text {
-                            id: lblSession
-                            width: parent.width
-                            text: textConstants.session
-                            color: "#88FF88"
-                            wrapMode: TextEdit.WordWrap
-                            font.bold: true
-                            font.pixelSize: 12
-                        }
-
-                        ComboBox {
-                            id: session
-                            width: parent.width; height: 30
-                            font.pixelSize: 14
-                            color: "transparent"
-                            arrowIcon: "angle-down.png"
-                            model: sessionModel
-                            index: sessionModel.lastIndex
-
-                            KeyNavigation.backtab: password; KeyNavigation.tab: layoutBox
-                        }
-                    }
-
-                    Column {
-                        width: parent.width * 0.7
-                        spacing: 4
-                        anchors.bottom: parent.bottom
-
-                        Text {
-                            id: lblLayout
-                            width: parent.width
-                            text: textConstants.layout
-                            wrapMode: TextEdit.WordWrap
-                            font.bold: true
-                            font.pixelSize: 12
-                            color: "#88FF88"
-                        }
-
-                        LayoutBox {
-                            id: layoutBox
-                            width: parent.width; height: 30
-                            font.pixelSize: 14
-                            color: "transparent"
-                            arrowIcon: "angle-down.png"
-
-                            KeyNavigation.backtab: session; KeyNavigation.tab: loginButton
-                        }
-                    }
-                }
-
-                Column {
-                    width: parent.width
-                    Text {
-                        id: errorMessage
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: textConstants.prompt
-                        font.pixelSize: 10
-                        color: "#88FF88"
-                    }
-                }
-
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
-
-                    Button {
-                        id: loginButton
-                        text: textConstants.login
-                        width: 73
-                        height: 75
-                        color: "transparent"
-                        textColor: "green"
-                        enabled: true
-
-                        onClicked: sddm.login(name.text, password.text, sessionIndex)
-
-                        KeyNavigation.backtab: layoutBox; KeyNavigation.tab: shutdownButton
-
-                        anchors.top: parent.bottom
-                        anchors.topMargin: -24
-
-                        MouseArea {
-                            width: parent.width
-                            height: parent.height
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onEntered: parent.color = "transparent"
-                            onExited: parent.color = "transparent"
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: sddm.login(name.text, password.text, sessionIndex)
-                        }
-                    }
-
-                    Button {
-                        id: rebootButton
-                        text: textConstants.reboot
-                        width: 73
-                        height: 75
-                        color: "transparent"
-                        textColor: "yellow"
-                        enabled: true
-
-                        onClicked: sddm.reboot()
-
-                        KeyNavigation.backtab: shutdownButton; KeyNavigation.tab: name
-
-                        anchors.top: parent.bottom
-                        anchors.topMargin: -24
-
-                        MouseArea {
-                            width: parent.width
-                            height: parent.height
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onEntered: parent.color = "transparent"
-                            onExited: parent.color = "transparent"
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: sddm.reboot()
-                        }
-                    }
-
-                    Button {
-                        id: shutdownButton
-                        text: "Power"
-                        width: 73
-                        height: 75
-                        color: "transparent"
-                        textColor: "red"
-                        enabled: true
-
-                        onClicked: sddm.powerOff()
-
-                        KeyNavigation.backtab: loginButton; KeyNavigation.tab: rebootButton
-
-                        anchors.top: parent.bottom
-                        anchors.topMargin: -24
-
-                        MouseArea {
-                            width: parent.width
-                            height: parent.height
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onEntered: parent.color = "transparent"
-                            onExited: parent.color = "transparent"
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: sddm.powerOff()
-                        }
-                    }
-                }
-            }
+    function showRandomImage() {
+        if (imageCount > 0) {
+            currentImageIndex = Math.floor(Math.random() * imageCount);
+            staticImageBackground.source = "file://" + imageFolderPath + "/image" + currentImageIndex + ".jpg";
+            videoBackground.visible = false;
+            animatedGifBackground.visible = false;
+            staticImageBackground.visible = true;
         }
     }
 
     Component.onCompleted: {
-        if (name.text === "")
-            name.focus = false
-            else
-                keyboardTriggerButton.focus = false
+        loadConfiguration();
+    }
+
+    // Fond vidéo
+    Video {
+        id: videoBackground
+        anchors.fill: parent
+        loops: MediaPlayer.Infinite
+        muted: true
+        fillMode: VideoOutput.PreserveAspectCrop
+        visible: false
+    }
+
+    // Fond GIF animé
+    AnimatedImage {
+        id: animatedGifBackground
+        anchors.fill: parent
+        fillMode: Image.PreserveAspectCrop
+        visible: false
+    }
+
+    // Fond image statique
+    Image {
+        id: staticImageBackground
+        anchors.fill: parent
+        fillMode: Image.PreserveAspectCrop
+        visible: false
+    }
+
+    // Timer pour changer les images aléatoires
+    Timer {
+        id: randomImageTimer
+        interval: 10000 // 10 secondes
+        repeat: true
+        onTriggered: showRandomImage()
+    }
+
+    // Overlay semi-transparent pour améliorer la lisibilité
+    Rectangle {
+        anchors.fill: parent
+        color: "black"
+        opacity: 0.4
+    }
+
+    // Interface utilisateur SDDM
+    Rectangle {
+        id: loginPanel
+        width: 400
+        height: 380
+        anchors.centerIn: parent
+        color: "#88112233"
+        radius: 10
+        border.color: "#55ffffff"
+        border.width: 1
+
+        Column {
+            anchors.centerIn: parent
+            spacing: 20
+            width: parent.width - 40
+
+            // Logo ou titre
+            Text {
+                text: "Bienvenue"
+                color: "white"
+                font.pixelSize: 28
+                font.bold: true
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+
+            // Champ nom d'utilisateur
+            Column {
+                width: parent.width
+                spacing: 5
+                
+                Text {
+                    text: "Utilisateur:"
+                    color: "white"
+                    font.pixelSize: 14
+                }
+                
+                TextField {
+                    id: usernameField
+                    width: parent.width
+                    height: 40
+                    placeholderText: "Nom d'utilisateur"
+                    background: Rectangle {
+                        color: "#22000000"
+                        border.color: "#55ffffff"
+                        border.width: 1
+                        radius: 5
+                    }
+                    color: "white"
+                    font.pixelSize: 16
+                }
+            }
+
+            // Champ mot de passe
+            Column {
+                width: parent.width
+                spacing: 5
+                
+                Text {
+                    text: "Mot de passe:"
+                    color: "white"
+                    font.pixelSize: 14
+                }
+                
+                TextField {
+                    id: passwordField
+                    width: parent.width
+                    height: 40
+                    placeholderText: "Mot de passe"
+                    echoMode: TextInput.Password
+                    background: Rectangle {
+                        color: "#22000000"
+                        border.color: "#55ffffff"
+                        border.width: 1
+                        radius: 5
+                    }
+                    color: "white"
+                    font.pixelSize: 16
+                }
+            }
+
+            // Sélecteur de session
+            Column {
+                width: parent.width
+                spacing: 5
+                
+                Text {
+                    text: "Session:"
+                    color: "white"
+                    font.pixelSize: 14
+                }
+                
+                ComboBox {
+                    id: sessionComboBox
+                    width: parent.width
+                    height: 40
+                    model: sessionModel
+                    textRole: "name"
+                    currentIndex: sessionModel.lastIndex
+                    background: Rectangle {
+                        color: "#22000000"
+                        border.color: "#55ffffff"
+                        border.width: 1
+                        radius: 5
+                    }
+                    popup.contentItem: ListView {
+                        model: sessionComboBox.model
+                        currentIndex: sessionComboBox.highlightedIndex
+                        delegate: ItemDelegate {
+                            width: parent.width
+                            text: model[name]
+                            highlighted: sessionComboBox.highlightedIndex === index
+                            background: Rectangle { color: highlighted ? "#44336699" : "#22112233" }
+                        }
+                    }
+                }
+            }
+
+            // Boutons d'action
+            Row {
+                spacing: 10
+                anchors.horizontalCenter: parent.horizontalCenter
+                
+                Button {
+                    text: "Connexion"
+                    width: 120
+                    height: 40
+                    onClicked: sddm.login(usernameField.text, passwordField.text, sessionComboBox.currentIndex)
+                    background: Rectangle {
+                        color: parent.down ? "#3366aa66" : (parent.hovered ? "#44aaeeaa" : "#3366aa99")
+                        radius: 5
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+                
+                Button {
+                    text: "Arrêt"
+                    width: 80
+                    height: 40
+                    onClicked: sddm.powerOff()
+                    background: Rectangle {
+                        color: parent.down ? "#33aa6666" : (parent.hovered ? "#44eeaaaa" : "#33aa6666")
+                        radius: 5
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+                
+                Button {
+                    text: "Redémarrage"
+                    width: 120
+                    height: 40
+                    onClicked: sddm.reboot()
+                    background: Rectangle {
+                        color: parent.down ? "#3366aaaa" : (parent.hovered ? "#44aaaaff" : "#3366aaaa")
+                        radius: 5
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+            }
+        }
+    }
+
+    // Horloge
+    Text {
+        id: timeText
+        anchors {
+            top: parent.top
+            right: parent.right
+            margins: 20
+        }
+        color: "white"
+        font.pixelSize: 48
+        font.bold: true
+        
+        function updateTime() {
+            var date = new Date();
+            timeText.text = date.toLocaleTimeString(Qt.locale(), "hh:mm");
+        }
+        
+        Component.onCompleted: {
+            updateTime();
+            timeUpdateTimer.start();
+        }
+    }
+    
+    Timer {
+        id: timeUpdateTimer
+        interval: 1000
+        running: true
+        repeat: true
+        onTriggered: timeText.updateTime()
+    }
+    
+    // Date
+    Text {
+        id: dateText
+        anchors {
+            top: timeText.bottom
+            right: parent.right
+            margins: 20
+        }
+        color: "white"
+        font.pixelSize: 18
+        
+        function updateDate() {
+            var date = new Date();
+            dateText.text = date.toLocaleDateString(Qt.locale(), "dddd, MMMM d");
+        }
+        
+        Component.onCompleted: {
+            updateDate();
+            dateUpdateTimer.start();
+        }
+    }
+    
+    Timer {
+        id: dateUpdateTimer
+        interval: 60000
+        running: true
+        repeat: true
+        onTriggered: dateText.updateDate()
+    }
+
+    // Message d'erreur
+    Text {
+        id: errorMessage
+        anchors {
+            bottom: parent.bottom
+            horizontalCenter: parent.horizontalCenter
+            margins: 20
+        }
+        color: "#ff6666"
+        font.pixelSize: 14
+        visible: text !== ""
+    }
+
+    // Connexions aux signaux SDDM
+    Connections {
+        target: sddm
+        
+        function onLoginSucceeded() {
+            errorMessage.color = "#66ff66";
+            errorMessage.text = "Connexion réussie";
+        }
+        
+        function onLoginFailed() {
+            errorMessage.color = "#ff6666";
+            errorMessage.text = "Échec de la connexion";
+            passwordField.text = "";
+        }
+    }
+
+    // Focus initial
+    Component.onCompleted: {
+        usernameField.focus = true;
+        if (usernameField.text === "") {
+            usernameField.focus = true;
+        } else {
+            passwordField.focus = true;
+        }
     }
 }
